@@ -2,13 +2,27 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ZmeiFi Game</title>
-  <link rel="stylesheet" href="./style.css" />
-  <script src="https://pixijs.download/release/pixi.min.js"></script>
-  <script defer src="./game.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: black;
+    }
+    #game-container {
+      width: 100vw;
+      height: 100vh;
+    }
+  </style>
 </head>
 <body>
-  <canvas id="gameCanvas"></canvas>
+  <div id="game-container"></div>
+
+  <!-- Pixi.js CDN -->
+  <script src="https://pixijs.download/release/pixi.min.js"></script>
+  <!-- Скрипт игры -->
+  <script src="./game.js"></script>
 </body>
 </html>
