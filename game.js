@@ -5,22 +5,14 @@ const app = new PIXI.Application({
 });
 document.getElementById("game-container").appendChild(app.view);
 
-// Центр карты
-const world = new PIXI.Container();
-app.stage.addChild(world);
+const snake = new PIXI.Graphics();
+snake.beginFill(0x00ff00);
+snake.drawCircle(0, 0, 10);
+snake.endFill();
+app.stage.addChild(snake);
 
-// Игрок (пока точка-заглушка)
-const snakeHead = new PIXI.Graphics();
-snakeHead.beginFill(0x00ff00);
-snakeHead.drawCircle(0, 0, 10);
-snakeHead.endFill();
-world.addChild(snakeHead);
-
-// Следим за мышкой
 app.ticker.add(() => {
-  const dx = app.renderer.plugins.interaction.mouse.global.x - snakeHead.x;
-  const dy = app.renderer.plugins.interaction.mouse.global.y - snakeHead.y;
-  snakeHead.x += dx * 0.05;
-  snakeHead.y += dy * 0.05;
+  const mouse = app.renderer.plugins.interaction.mouse.global;
+  snake.x += (mouse.x - snake.x) * 0.05;
+  snake.y += (mouse.y - snake.y) * 0.05;
 });
-1
