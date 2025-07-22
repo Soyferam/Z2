@@ -66,8 +66,8 @@ export class UIManager {
       });
       this.joystick.on("move", (evt, data) => {
         if (data.direction) {
-          // Корректируем угол: напрямую используем угол джойстика, но учитываем, что Y вниз в Pixi.js
-          this.targetAngle = data.angle.radian;
+          // Инвертируем угол для коррекции оси Y (вверх/вниз)
+          this.targetAngle = -data.angle.radian;
           console.log("Joystick angle:", data.angle.radian, "Target angle:", this.targetAngle); // Для отладки
         }
       });
