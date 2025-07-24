@@ -9,26 +9,21 @@
 </head>
 <body>
   <div id="game-container"></div>
-  <!-- Миникарта -->
   <div id="minimap" class="minimap"></div>
-  <!-- Плашка с профитом и токенами -->
   <div id="profit-box" class="profit-box">
     <div class="profit-text">
       <div class="profit-line">Profit: <span class="profit-amount">$0.00</span></div>
       <div class="tokens-line">Tokens: <span class="token-amount">0</span></div>
     </div>
   </div>
-  <!-- Кнопки Exit и Quick Exit -->
   <div id="exit-buttons" class="exit-buttons">
     <button id="exit-btn" class="exit-btn">Exit</button>
     <button id="quick-exit-btn" class="quick-exit-btn">Quick Exit</button>
   </div>
-  <!-- Кнопка Boost (для мобильных) -->
   <button id="boost-btn" class="boost-btn">Boost</button>
-  <!-- Джойстик (для мобильных) -->
   <div id="joystick" class="joystick"></div>
-  <script src="https://pixijs.download/v7.4.0/pixi.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/nipplejs@0.10.0/dist/nipplejs.min.js"></script>
-  <script type="module" src="src/game.js"></script>
+  <script defer src="https://pixijs.download/v7.4.0/pixi.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/nipplejs@0.10.0/dist/nipplejs.min.js"></script>
+  <script type="module" defer src="src/game.js"></script>
 </body>
 </html>

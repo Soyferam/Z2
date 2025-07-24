@@ -1,3 +1,4 @@
+/* style.css */
 * {
   margin: 0;
   padding: 0;
@@ -42,10 +43,11 @@ canvas {
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.25);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-  border-radius: 10px;
+  border-radius: 50%;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   z-index: 100;
+  overflow: hidden;
 }
 
 /* Плашка с профитом и токенами */
@@ -68,6 +70,47 @@ canvas {
   color: #fff;
 }
 
+/* Developer UI */
+.dev-container {
+  position: fixed;
+  top: 20vh;
+  right: 4vw;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  border-radius: 16px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 100;
+  font-family: 'AntonSC';
+  color: #fff;
+}
+
+.dev-input {
+  padding: 8px;
+  font-size: 14px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  border-radius: 8px;
+}
+
+.dev-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  padding: 8px;
+  font-size: 14px;
+  font-family: 'AntonSC';
+  color: #fff;
+  cursor: pointer;
+  text-align: center;
+  transition: 0.3s ease;
+}
+
 .profit-line, .tokens-line {
   font-size: 14px;
   white-space: nowrap;
@@ -81,11 +124,13 @@ canvas {
 /* Кнопки Exit и Quick Exit */
 .exit-buttons {
   position: fixed;
-  top: 20vh;
+  top: 14vh;
   right: 4vw;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 10px;
+  min-width: 150px;
+  max-width: 200px;
   z-index: 100;
 }
 
@@ -94,13 +139,14 @@ canvas {
   border: 1px solid rgba(255, 255, 255, 0.25);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
   border-radius: 20px;
-  padding: 8px 20px;
+  padding: 8px;
   font-size: 14px;
   font-family: 'AntonSC';
   color: #fff;
   cursor: pointer;
   text-align: center;
   transition: 0.3s ease;
+  flex: 1;
 }
 
 /* Кнопка Boost */
@@ -119,7 +165,7 @@ canvas {
   cursor: pointer;
   text-align: center;
   transition: 0.3s ease;
-  display: none; /* Скрыто по умолчанию, будет показано на мобильных */
+  display: none;
 }
 
 /* Джойстик */
@@ -127,7 +173,7 @@ canvas {
   position: fixed;
   bottom: 4vh;
   left: 4vw;
-  width: 120px; /* Увеличено для лучшей видимости */
+  width: 120px;
   height: 120px;
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.25);
@@ -136,7 +182,7 @@ canvas {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   z-index: 100;
-  display: none; /* Скрыто по умолчанию, будет показано на мобильных */
+  display: none;
 }
 
 /* Стили для nipple.js */
@@ -157,6 +203,7 @@ canvas {
     left: 2vw;
     width: 100px;
     height: 100px;
+    border-radius: 50%;
   }
   .profit-box {
     top: 2vh;
@@ -166,27 +213,40 @@ canvas {
     font-size: 12px;
   }
   .exit-buttons {
-    top: 15vh;
+    top: 10vh;
     right: 2vw;
-    flex-direction: column; /* Вертикально на мобильных */
+    flex-direction: row;
+    min-width: 120px;
+    max-width: 120px;
+    gap: 8px;
+  }
+  .dev-container {
+    top: 16vh;
+    right: 2vw;
+    min-width: 120px;
+    padding: 8px;
+  }
+  .dev-input, .dev-btn {
+    font-size: 12px;
+    padding: 6px;
   }
   .exit-btn, .quick-exit-btn {
-    padding: 6px 12px;
+    padding: 6px;
     font-size: 12px;
   }
   .boost-btn {
-    bottom: 2vh;
-    right: 2vw;
-    padding: 6px 12px;
-    font-size: 12px;
-    display: block; /* Видимо на мобильных */
+    bottom: 12vh;
+    right: 13vw;
+    padding: 15px 20px;
+    font-size: 14px;
+    display: block;
   }
   .joystick {
-    bottom: 2vh;
-    left: 2vw;
+    bottom: 10vh;
+    left: 14vw;
     width: 100px;
     height: 100px;
-    display: block; /* Видимо на мобильных */
+    display: block;
   }
 }
 
@@ -197,15 +257,24 @@ canvas {
     left: 2vw;
     width: 120px;
     height: 120px;
+    border-radius: 50%;
   }
   .profit-box {
     top: 2vh;
     right: 2vw;
   }
   .exit-buttons {
-    top: 15vh;
+    top: 10vh;
     right: 2vw;
-    flex-direction: column; /* Вертикально в горизонтальном режиме на мобильных */
+    flex-direction: row;
+    min-width: 120px;
+    max-width: 120px;
+    gap: 8px;
+  }
+  .dev-container {
+    top: 16vh;
+    right: 2vw;
+    min-width: 120px;
   }
   .boost-btn {
     bottom: 2vh;
@@ -226,22 +295,35 @@ canvas {
     left: 4vw;
     width: 200px;
     height: 200px;
+    border-radius: 50%;
   }
   .profit-box {
     top: 4vh;
     right: 4vw;
-    min-width: 200px; /* Увеличено */
-    padding: 12px 20px; /* Увеличено */
-    font-size: 16px; /* Увеличено */
+    min-width: 200px;
+    padding: 12px 20px;
+    font-size: 16px;
   }
   .exit-buttons {
-    top: 25vh;
+    top: 16vh;
     right: 4vw;
-    flex-direction: row; /* Горизонтально на десктопе */
-    gap: 20px; /* Увеличен зазор */
+    flex-direction: row;
+    min-width: 200px;
+    max-width: 200px;
+    gap: 12px;
+  }
+  .dev-container {
+    top: 22vh;
+    right: 4vw;
+    min-width: 200px;
+    padding: 12px;
+  }
+  .dev-input, .dev-btn {
+    font-size: 16px;
+    padding: 10px;
   }
   .exit-btn, .quick-exit-btn {
-    padding: 10px 30px; /* Увеличено */
-    font-size: 16px; /* Увеличено */
+    padding: 10px;
+    font-size: 16px;
   }
 }
