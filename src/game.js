@@ -73,7 +73,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   const bodyGlowGraphics = new PIXI.Graphics();
   bodyGlowGraphics.zIndex = -0.5;
   gameWorld.addChild(bodyGlowGraphics);
-  bodyGlowGraphics.filters = [new PIXI.filters.BlurFilter(8, 4)];
+  //bodyGlowGraphics.filters = [new PIXI.filters.BlurFilter(8, 4)];
 
   // Система сегментов змейки
   const snakeSegments = [];
@@ -82,6 +82,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   let glowPulse = 0;
   let orbSpawnTimer = 0;
   let growthLerp = 1;
+  let wasBoosting = false;
 
   // Менеджеры
   const foodManager = new FoodManager(gameWorld, GAME_CONSTANTS.WORLD_RADIUS, textures["assets/token-food.png"]);
@@ -89,11 +90,11 @@ window.addEventListener("DOMContentLoaded", async () => {
   const uiManager = new UIManager(app, gameWorld, snakeHead, GAME_CONSTANTS.WORLD_RADIUS, (newMass) => {
     targetMass = Math.max(10, newMass);
     snakeMass = targetMass;
-    uiManager.updateTokens(snakeMass - uiManager.tokens);
+    uiManager.updateTokens(snakeMass - uiManager.tokens, false); // false для блокировки профита
     growthLerp = 0;
   });
 
-  uiManager.updateTokens(Math.floor(snakeMass));
+  uiManager.updateTokens(Math.floor(snakeMass), false); // Инициализация без профита
 
   // Инициализация камеры
   uiManager.currentScale = uiManager.isMobile ? GAME_CONSTANTS.MIN_SCALE.mobile : GAME_CONSTANTS.MIN_SCALE.desktop;
@@ -360,7 +361,7 @@ window.addEventListener("DOMContentLoaded", async () => {
         food.alpha = initialAlpha * (1 - progress);
 
         if (progress >= 1) {
-          console.log(`Food animation completed, removing food at: ${food.x}, ${food.y}, ID: ${food.id}, Type: ${food.type || 'unknown'}, Points: ${food.points || 1}`);
+          console.log(`Food animation completed, removing food at: ${food.x}, ${food.y}, ID: ${food.id}, Type: ${food.type || 'unknown'}, Points: ${food.points}`);
           if (gameWorld.children.includes(food)) {
             gameWorld.removeChild(food);
           }
@@ -369,7 +370,7 @@ window.addEventListener("DOMContentLoaded", async () => {
           callback();
         }
       } catch (error) {
-        console.error(`Error during food animation for ID: ${food.id}, Type: ${food.type || 'unknown'}, Points: ${food.points || 1}`, error);
+        console.error(`Error during food animation for ID: ${food.id}, Type: ${food.type || 'unknown'}, Points: ${food.points}`, error);
         if (gameWorld.children.includes(food)) {
           gameWorld.removeChild(food);
         }
@@ -384,9 +385,24 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   // Основной игровой цикл
   app.ticker.add((delta) => {
+    // Проверка начала буста
+    if (uiManager.isBoosting && !wasBoosting && snakeMass > 11 && targetMass > 11) {
+      // Динамическое начальное уменьшение массы
+      const initialMassLoss = Math.min(snakeMass * 0.01, 5); // 1% массы, но не более 5
+      targetMass = Math.max(10, targetMass - initialMassLoss);
+      snakeMass = Math.max(10, snakeMass - initialMassLoss);
+      uiManager.updateTokens(snakeMass - uiManager.tokens, false); // false для блокировки профита
+      console.debug(`Boost started, initial mass loss: ${initialMassLoss.toFixed(2)}, SnakeMass: ${snakeMass.toFixed(2)}, TargetMass: ${targetMass.toFixed(2)}`);
+    }
+
+    // Обновление состояния буста
+    wasBoosting = uiManager.isBoosting;
+
+    // Интерполяция массы с динамическим коэффициентом
     if (Math.abs(targetMass - snakeMass) > 0.01) {
-      snakeMass += (targetMass - snakeMass) * 0.08 * delta;
-      uiManager.updateTokens(snakeMass - uiManager.tokens);
+      const lerpFactor = snakeMass > 100 ? 0.8 : 0.2; // Ускоренная интерполяция для больших змеек
+      snakeMass += (targetMass - snakeMass) * lerpFactor * delta;
+      uiManager.updateTokens(snakeMass - uiManager.tokens, false); // false для блокировки профита
     }
 
     const canBoost = snakeMass > 11 && targetMass > 11 && uiManager.isBoosting;
@@ -396,6 +412,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       targetMass = Math.max(10, targetMass - massLost);
       if (targetMass <= 11) {
         uiManager.isBoosting = false;
+        console.debug(`Boost stopped due to low mass, SnakeMass: ${snakeMass.toFixed(2)}, TargetMass: ${targetMass.toFixed(2)}`);
       }
     }
 
@@ -440,10 +457,10 @@ window.addEventListener("DOMContentLoaded", async () => {
 
       // Обработка столкновения или "зависшей" еды
       if (distanceToHead < collisionThreshold || distanceToHead < snakeHead.width) {
-        const points = food.points || 1; // Значение по умолчанию
+        const points = food.type === "boost" ? (snakeMass > 100 ? 0.05 : 0.1) : food.points;
         console.log(`Food consumed at: ${food.x}, ${food.y}, ID: ${food.id}, Type: ${food.type || 'unknown'}, Points: ${points}`);
         targetMass += points;
-        uiManager.updateTokens(snakeMass + points - uiManager.tokens); // Обновляем токены сразу
+        uiManager.updateTokens(snakeMass + points - uiManager.tokens, true); // true для профита только при поедании еды
         animateFoodConsumption(food, () => {
           if (food.type !== "boost") {
             foodManager.createFood();
@@ -466,18 +483,18 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     if (canBoost && snakeSegments.length > 5) {
       orbSpawnTimer += delta / 60;
-      const orbInterval = snakeMass > 100 ? GAME_CONSTANTS.ORB_SPAWN_INTERVAL.large : GAME_CONSTANTS.ORB_SPAWN_INTERVAL.small;
+      const orbInterval = snakeMass > 100 ? 0.06 : GAME_CONSTANTS.ORB_SPAWN_INTERVAL.small; // Увеличен интервал для больших змеек
       if (orbSpawnTimer >= orbInterval) {
         const tailIndex = Math.min(snakeSegments.length - 1, Math.floor(snakeSegments.length * 0.8));
         const tailPos = snakeSegments[tailIndex];
         
         const orb = new PIXI.Container();
         orb.type = "boost";
-        orb.points = 1; // Явно задаём points
+        orb.points = snakeMass > 100 ? 0.05 : 0.1;
         orb.size = 10;
         orb.zIndex = -2;
         orb.id = Math.random().toString(36).substr(2, 9);
-        orb.attractionTime = 0; // Для совместимости с FoodManager.update
+        orb.attractionTime = 0;
         
         const color = foodManager.colors[Math.floor(Math.random() * foodManager.colors.length)];
         const gradientTexture = foodManager.createGradientTexture(color, orb.size);

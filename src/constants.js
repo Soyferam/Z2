@@ -12,7 +12,7 @@ export const GAME_CONSTANTS = {
   MASS_SCALE: 1000,
   BASE_WIDTH: 15,          // Уменьшена базовая ширина
   BODY_COLOR: 0x1AC9FF,
-  FOOD_COUNT: 2000,
+  FOOD_COUNT: 1000,
   GRID_SIZE: 100,
   
   FOOD_COLORS: [
