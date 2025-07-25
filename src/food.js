@@ -38,7 +38,7 @@ export class FoodManager {
     
     const foodContainer = new PIXI.Container();
     foodContainer.type = type;
-    foodContainer.points = points || 1; // Значение по умолчанию
+    foodContainer.points = points || 1;
     foodContainer.size = size;
     foodContainer.isConsumed = false;
     foodContainer.id = Math.random().toString(36).substr(2, 9);
@@ -115,10 +115,12 @@ export class FoodManager {
             this.gameWorld.removeChild(food);
           }
           food.destroy({ children: true });
-          // Начисляем токены
+          
+          // УБРАН ПРОФИТ - прямое увеличение массы змейки без расчета профита
           const points = food.points || 1;
-          snakeMass += points; // Прямое увеличение snakeMass
-          uiManager.updateTokens(snakeMass - uiManager.tokens);
+          // Здесь должна быть ссылка на увеличение массы змейки
+          // Это будет обработано в основном игровом цикле
+          
           if (food.type !== "boost") {
             this.createFood();
           }

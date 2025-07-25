@@ -69,11 +69,10 @@ window.addEventListener("DOMContentLoaded", async () => {
   snakeBodyGraphics.zIndex = 0;
   gameWorld.addChild(snakeBodyGraphics);
 
-  // Свечение тела при бусте
+  // Оптимизированное свечение тела
   const bodyGlowGraphics = new PIXI.Graphics();
   bodyGlowGraphics.zIndex = -0.5;
   gameWorld.addChild(bodyGlowGraphics);
-  //bodyGlowGraphics.filters = [new PIXI.filters.BlurFilter(8, 4)];
 
   // Система сегментов змейки
   const snakeSegments = [];
@@ -83,6 +82,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   let orbSpawnTimer = 0;
   let growthLerp = 1;
   let wasBoosting = false;
+  let glowUpdateCounter = 0; // Счетчик для оптимизации обновления свечения
 
   // Менеджеры
   const foodManager = new FoodManager(gameWorld, GAME_CONSTANTS.WORLD_RADIUS, textures["assets/token-food.png"]);
@@ -90,17 +90,47 @@ window.addEventListener("DOMContentLoaded", async () => {
   const uiManager = new UIManager(app, gameWorld, snakeHead, GAME_CONSTANTS.WORLD_RADIUS, (newMass) => {
     targetMass = Math.max(10, newMass);
     snakeMass = targetMass;
-    uiManager.updateTokens(snakeMass - uiManager.tokens, false); // false для блокировки профита
+    // УБРАН ПРОФИТ - токены обновляются без профита
+    uiManager.updateTokens(snakeMass, false);
     growthLerp = 0;
   });
 
-  uiManager.updateTokens(Math.floor(snakeMass), false); // Инициализация без профита
+  // Инициализация токенов без профита
+  uiManager.updateTokens(Math.floor(snakeMass), false);
 
   // Инициализация камеры
   uiManager.currentScale = uiManager.isMobile ? GAME_CONSTANTS.MIN_SCALE.mobile : GAME_CONSTANTS.MIN_SCALE.desktop;
   gameWorld.x = -snakeHead.x * uiManager.currentScale + app.screen.width / 2;
   gameWorld.y = -snakeHead.y * uiManager.currentScale + app.screen.height / 2;
   gameWorld.scale.set(uiManager.currentScale);
+
+  // Функция получения параметров поворота по массе
+  function getRotationParams(mass) {
+    const configs = GAME_CONSTANTS.ROTATION_CONFIG;
+    for (const [key, config] of Object.entries(configs)) {
+      if (mass >= config.massRange[0] && mass < config.massRange[1]) {
+        return config;
+      }
+    }
+    return configs.huge; // По умолчанию для очень больших змей
+  }
+
+  // Функция получения параметров свечения по массе (исправлено)
+  function getGlowParams(mass) {
+    const configs = GAME_CONSTANTS.GLOW_OPTIMIZATION;
+    let foundConfig = null;
+    for (const [key, config] of Object.entries(configs)) {
+      // Проверяем, что есть massRange
+      if (config && config.massRange && Array.isArray(config.massRange)) {
+        if (mass >= config.massRange[0] && mass < config.massRange[1]) {
+          foundConfig = config;
+          break;
+        }
+      }
+    }
+    // Если не найдено, возвращаем дефолтные параметры для больших змей
+    return foundConfig || configs.large;
+  }
 
   // Функция расчета размеров змейки
   function calculateSnakeParams(mass) {
@@ -234,84 +264,87 @@ window.addEventListener("DOMContentLoaded", async () => {
     return { r, g, b };
   }
 
-  // Функция обновления свечения
-  function updateGlowSegments(delta, isBoosting) {
-    if (!isBoosting) {
-      bodyGlowGraphics.clear();
-    }
-  }
-
-  function drawSnakeGlow(isBoosting, currentWidth) {
+  // ОПТИМИЗИРОВАННАЯ функция рисования ЕДИНОГО свечения вдоль всей змейки (только одна линия по всем точкам)
+  function drawOptimizedSnakeGlow(isBoosting, currentWidth) {
     bodyGlowGraphics.clear();
 
-    if (!isBoosting || snakeSegments.length < 1) return;
+    if (!isBoosting || snakeSegments.length < 2) return;
 
-    const isSmallSnake = snakeSegments.length < 10;
-    const glowPulseSpeed = isSmallSnake ? 0.03 : 0.05;
-    glowPulse += glowPulseSpeed;
+    const glowParams = getGlowParams(snakeMass);
+    const optimizationConfig = GAME_CONSTANTS.GLOW_OPTIMIZATION;
+    glowPulse += glowParams.pulseSpeed;
 
-    const glowColors = isSmallSnake
-      ? [
-          hexToRgb(0x66CCFF),
-          hexToRgb(0xFF66FF),
-          hexToRgb(0xFF9999),
-          hexToRgb(0xFFFF99),
-        ]
-      : [
-          hexToRgb(0x00CCFF),
-          hexToRgb(0xFF00FF),
-          hexToRgb(0xFF3333),
-          hexToRgb(0xFFFF00),
-          hexToRgb(0x33FF33),
-          hexToRgb(0xFFFFFF),
-        ];
+    // Используем гибкую ширину свечения по массе
+    const glowWidth = getGlowWidthByMass(snakeMass) * currentWidth;
+    let alpha = glowParams.baseAlpha;
+    if (glowParams.useSimplification) {
+      alpha *= optimizationConfig.LARGE_SNAKE_SIMPLIFICATION.reducedAlpha;
+    }
 
-    const glowWidth = currentWidth * (isSmallSnake ? 1.5 : 2.0);
-    const totalSegments = snakeSegments.length + 1;
+    // HSV rainbow for slither.io style
+    function hsvToRgb(h, s, v) {
+      let f = (n, k = (n + h / 60) % 6) =>
+        v - v * s * Math.max(Math.min(k, 4 - k, 1), 0);
+      return {
+        r: Math.round(f(5) * 255),
+        g: Math.round(f(3) * 255),
+        b: Math.round(f(1) * 255)
+      };
+    }
 
-    for (let i = 0; i <= snakeSegments.length; i++) {
-      const isHead = i === 0;
-      const segment = isHead ? { x: snakeHead.x, y: snakeHead.y } : snakeSegments[i - 1];
+    // Собираем все точки змейки для единой линии
+    const points = [];
+    points.push({ x: snakeHead.x, y: snakeHead.y });
+    for (let i = 0; i < snakeSegments.length; i++) {
+      points.push({ x: snakeSegments[i].x, y: snakeSegments[i].y });
+    }
 
-      const t = i / totalSegments;
-      const phaseMultiplier = isSmallSnake ? 2 * Math.PI : 4 * Math.PI;
-      const phase = (glowPulse + t * phaseMultiplier) % (2 * Math.PI);
-      const colorIndex = Math.floor((phase / (2 * Math.PI)) * glowColors.length);
-      const nextColorIndex = (colorIndex + 1) % glowColors.length;
-      const colorFactor = (phase / (2 * Math.PI)) * glowColors.length - colorIndex;
+    // Цвет линии рассчитываем по фазе (один цвет на всю glow-линию, плавно переливается)
+    const t = (glowPulse * 0.2) % 1;
+    const hue = t * 360;
+    const rgb = hsvToRgb(hue, 0.8, 1.0);
+    const color = (rgb.r << 16) | (rgb.g << 8) | rgb.b;
 
-      const currentColor = interpolateColor(
-        glowColors[colorIndex],
-        glowColors[nextColorIndex],
-        colorFactor
+    bodyGlowGraphics.lineStyle({
+      width: glowWidth,
+      color: color,
+      alpha: alpha,
+      cap: PIXI.LINE_CAP.ROUND,
+      join: PIXI.LINE_JOIN.ROUND,
+    });
+
+    // Рисуем единую плавную линию вдоль всей змейки
+    if (points.length > 2) {
+      bodyGlowGraphics.moveTo(points[0].x, points[0].y);
+      for (let i = 1; i < points.length - 1; i++) {
+        const xc = (points[i].x + points[i + 1].x) / 2;
+        const yc = (points[i].y + points[i + 1].y) / 2;
+        bodyGlowGraphics.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
+      }
+      // Последний сегмент
+      bodyGlowGraphics.quadraticCurveTo(
+        points[points.length - 1].x,
+        points[points.length - 1].y,
+        points[points.length - 1].x,
+        points[points.length - 1].y
       );
-
-      const alphaFactor = isSmallSnake ? 0.7 + 0.3 * (1 - t) : 0.6 + 0.4 * (1 - t);
-      const pulseFactor = 1.0 + (isSmallSnake ? 0.2 : 0.4) * Math.sin(glowPulse + t * 3);
-      const alpha = Math.min(1, Math.max(isSmallSnake ? 0.5 : 0.4, alphaFactor * pulseFactor));
-
-      bodyGlowGraphics.lineStyle({
-        width: glowWidth,
-        color: currentColor,
-        alpha: alpha,
-        cap: PIXI.LINE_CAP.ROUND,
-        join: PIXI.LINE_JOIN.ROUND,
-      });
-
-      if (i === 0) {
-        bodyGlowGraphics.moveTo(segment.x, segment.y);
-      } else {
-        bodyGlowGraphics.lineTo(segment.x, segment.y);
+    } else {
+      bodyGlowGraphics.moveTo(points[0].x, points[0].y);
+      for (let i = 1; i < points.length; i++) {
+        bodyGlowGraphics.lineTo(points[i].x, points[i].y);
       }
     }
   }
 
   // Плавное масштабирование камеры
   function updateCamera(delta) {
-    const t = Math.min(Math.max(Math.log(snakeMass / 2 + 1) / Math.log(75), 0), 1);
-    const targetScale = (uiManager.isMobile ? GAME_CONSTANTS.MIN_SCALE.mobile : GAME_CONSTANTS.MIN_SCALE.desktop) -
-      ((uiManager.isMobile ? GAME_CONSTANTS.MIN_SCALE.mobile : GAME_CONSTANTS.MIN_SCALE.desktop) -
-       (uiManager.isMobile ? GAME_CONSTANTS.MAX_SCALE.mobile : GAME_CONSTANTS.MAX_SCALE.desktop)) * t;
+    // Исправлено: корректная формула для плавного уменьшения масштаба при росте змейки
+    const minScale = uiManager.isMobile ? GAME_CONSTANTS.MIN_SCALE.mobile : GAME_CONSTANTS.MIN_SCALE.desktop;
+    const maxScale = uiManager.isMobile ? GAME_CONSTANTS.MAX_SCALE.mobile : GAME_CONSTANTS.MAX_SCALE.desktop;
+    // t = 0 (маленькая змейка) -> minScale, t = 1 (большая) -> maxScale
+    const t = Math.min(Math.max(Math.log(snakeMass + 1) / Math.log(50000), 0), 1);
+    const targetScale = minScale - (minScale - maxScale) * t;
+
     uiManager.currentScale += (targetScale - uiManager.currentScale) * GAME_CONSTANTS.SCALE_SPEED * delta * 0.5;
     const targetX = -snakeHead.x * uiManager.currentScale + app.screen.width / 2;
     const targetY = -snakeHead.y * uiManager.currentScale + app.screen.height / 2;
@@ -320,7 +353,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     gameWorld.scale.set(uiManager.currentScale);
   }
 
-  // Управление движением
+  // Управление движением с динамическими параметрами поворота
   let currentAngle = -Math.PI / 2;
   app.stage.on("pointermove", (event) => {
     if (!uiManager.isMobile) {
@@ -361,7 +394,7 @@ window.addEventListener("DOMContentLoaded", async () => {
         food.alpha = initialAlpha * (1 - progress);
 
         if (progress >= 1) {
-          console.log(`Food animation completed, removing food at: ${food.x}, ${food.y}, ID: ${food.id}, Type: ${food.type || 'unknown'}, Points: ${food.points}`);
+          console.log(`Food consumed: ID ${food.id}, Type: ${food.type || 'unknown'}, Points: ${food.points}`);
           if (gameWorld.children.includes(food)) {
             gameWorld.removeChild(food);
           }
@@ -370,7 +403,7 @@ window.addEventListener("DOMContentLoaded", async () => {
           callback();
         }
       } catch (error) {
-        console.error(`Error during food animation for ID: ${food.id}, Type: ${food.type || 'unknown'}, Points: ${food.points}`, error);
+        console.error(`Error during food animation: ${error}`);
         if (gameWorld.children.includes(food)) {
           gameWorld.removeChild(food);
         }
@@ -387,22 +420,21 @@ window.addEventListener("DOMContentLoaded", async () => {
   app.ticker.add((delta) => {
     // Проверка начала буста
     if (uiManager.isBoosting && !wasBoosting && snakeMass > 11 && targetMass > 11) {
-      // Динамическое начальное уменьшение массы
-      const initialMassLoss = Math.min(snakeMass * 0.01, 5); // 1% массы, но не более 5
+      const initialMassLoss = Math.min(snakeMass * 0.01, 5);
       targetMass = Math.max(10, targetMass - initialMassLoss);
       snakeMass = Math.max(10, snakeMass - initialMassLoss);
-      uiManager.updateTokens(snakeMass - uiManager.tokens, false); // false для блокировки профита
-      console.debug(`Boost started, initial mass loss: ${initialMassLoss.toFixed(2)}, SnakeMass: ${snakeMass.toFixed(2)}, TargetMass: ${targetMass.toFixed(2)}`);
+      // УБРАН ПРОФИТ - обновляем только токены
+      uiManager.updateTokens(snakeMass, false);
     }
 
-    // Обновление состояния буста
     wasBoosting = uiManager.isBoosting;
 
-    // Интерполяция массы с динамическим коэффициентом
+    // Интерполяция массы
     if (Math.abs(targetMass - snakeMass) > 0.01) {
-      const lerpFactor = snakeMass > 100 ? 0.8 : 0.2; // Ускоренная интерполяция для больших змеек
+      const lerpFactor = snakeMass > 100 ? 0.8 : 0.2;
       snakeMass += (targetMass - snakeMass) * lerpFactor * delta;
-      uiManager.updateTokens(snakeMass - uiManager.tokens, false); // false для блокировки профита
+      // УБРАН ПРОФИТ - обновляем только токены
+      uiManager.updateTokens(snakeMass, false);
     }
 
     const canBoost = snakeMass > 11 && targetMass > 11 && uiManager.isBoosting;
@@ -412,11 +444,12 @@ window.addEventListener("DOMContentLoaded", async () => {
       targetMass = Math.max(10, targetMass - massLost);
       if (targetMass <= 11) {
         uiManager.isBoosting = false;
-        console.debug(`Boost stopped due to low mass, SnakeMass: ${snakeMass.toFixed(2)}, TargetMass: ${targetMass.toFixed(2)}`);
       }
     }
 
-    currentAngle = lerpAngle(currentAngle, uiManager.getTargetAngle(), GAME_CONSTANTS.ROTATION_SPEED * delta);
+    // Получаем динамические параметры поворота
+    const rotationParams = getRotationParams(snakeMass);
+    currentAngle = lerpAngle(currentAngle, uiManager.getTargetAngle(), rotationParams.rotationSpeed * delta);
     const speed = calculateSpeed(snakeMass, canBoost);
 
     let newX = snakeHead.x + Math.cos(currentAngle) * speed * delta;
@@ -442,7 +475,6 @@ window.addEventListener("DOMContentLoaded", async () => {
     // Проверка столкновений с едой
     foodManager.foodItems = foodManager.foodItems.filter(food => {
       if (!food || food.isConsumed) {
-        console.warn(`Skipping invalid or consumed food: ID ${food?.id}, Type: ${food?.type || 'unknown'}`);
         return false;
       }
 
@@ -455,12 +487,11 @@ window.addEventListener("DOMContentLoaded", async () => {
       const distanceToHead = Math.hypot(food.x - faceX, food.y - faceY);
       const collisionThreshold = (snakeHead.width / 2) + (foodSize / 2);
 
-      // Обработка столкновения или "зависшей" еды
       if (distanceToHead < collisionThreshold || distanceToHead < snakeHead.width) {
         const points = food.type === "boost" ? (snakeMass > 100 ? 0.05 : 0.1) : food.points;
-        console.log(`Food consumed at: ${food.x}, ${food.y}, ID: ${food.id}, Type: ${food.type || 'unknown'}, Points: ${points}`);
         targetMass += points;
-        uiManager.updateTokens(snakeMass + points - uiManager.tokens, true); // true для профита только при поедании еды
+        // УБРАН ПРОФИТ - обновляем только токены без профита
+        uiManager.updateTokens(snakeMass + points, false);
         animateFoodConsumption(food, () => {
           if (food.type !== "boost") {
             foodManager.createFood();
@@ -478,12 +509,18 @@ window.addEventListener("DOMContentLoaded", async () => {
     }
 
     drawSnakeBody();
-    updateGlowSegments(delta, canBoost);
-    drawSnakeGlow(canBoost, width);
+    
+    // ОПТИМИЗИРОВАННОЕ обновление свечения - не каждый кадр
+    glowUpdateCounter++;
+    if (glowUpdateCounter >= GAME_CONSTANTS.GLOW_OPTIMIZATION.GLOW_UPDATE_INTERVAL) {
+      drawOptimizedSnakeGlow(canBoost, width);
+      glowUpdateCounter = 0;
+    }
 
+    // Спавн орбов при бусте
     if (canBoost && snakeSegments.length > 5) {
       orbSpawnTimer += delta / 60;
-      const orbInterval = snakeMass > 100 ? 0.06 : GAME_CONSTANTS.ORB_SPAWN_INTERVAL.small; // Увеличен интервал для больших змеек
+      const orbInterval = snakeMass > 100 ? 0.06 : GAME_CONSTANTS.ORB_SPAWN_INTERVAL.small;
       if (orbSpawnTimer >= orbInterval) {
         const tailIndex = Math.min(snakeSegments.length - 1, Math.floor(snakeSegments.length * 0.8));
         const tailPos = snakeSegments[tailIndex];
@@ -518,14 +555,9 @@ window.addEventListener("DOMContentLoaded", async () => {
     foodManager.update(delta, snakeHead);
     updateCamera(delta);
     uiManager.updateMinimap();
-
-    // Отладка: логируем количество активных объектов еды
-    if (foodManager.foodItems.length > 0) {
-      console.debug(`Active food items: ${foodManager.foodItems.length}, SnakeMass: ${snakeMass.toFixed(2)}, TargetMass: ${targetMass.toFixed(2)}`);
-    }
   });
 
-  // Функция плавного поворота
+  // Функция плавного поворота с динамическим ограничением
   function lerpAngle(start, end, t) {
     const twoPi = 2 * Math.PI;
     start = ((start % twoPi) + twoPi) % twoPi;
@@ -533,8 +565,54 @@ window.addEventListener("DOMContentLoaded", async () => {
     let diff = end - start;
     if (diff > Math.PI) diff -= twoPi;
     if (diff < -Math.PI) diff += twoPi;
-    const maxChange = GAME_CONSTANTS.MAX_ANGULAR_SPEED * t;
+    
+    // Получаем максимальную угловую скорость для текущей массы
+    const rotationParams = getRotationParams(snakeMass);
+    const maxChange = rotationParams.maxAngularSpeed * t;
     diff = Math.max(-maxChange, Math.min(maxChange, diff));
     return ((start + diff) % twoPi + twoPi) % twoPi;
+  }
+
+  function getRotationConfigByMass(mass) {
+    const configs = GAME_CONSTANTS.ROTATION_CONFIG;
+    for (const key in configs) {
+      const { massRange } = configs[key];
+      if (mass >= massRange[0] && mass < massRange[1]) {
+        return configs[key];
+      }
+    }
+    return configs.mega; // fallback
+  }
+
+  function getGlowWidthByMass(mass) {
+    const arr = GAME_CONSTANTS.GLOW_OPTIMIZATION.glowWidthByMass;
+    for (const item of arr) {
+      if (mass >= item.range[0] && mass < item.range[1]) {
+        return item.width;
+      }
+    }
+    return arr[arr.length - 1].width;
+  }
+
+  function updateSnakeMovement(snake) {
+    const config = getRotationConfigByMass(snake.mass);
+    snake.rotationSpeed = config.rotationSpeed;
+    snake.maxAngularSpeed = config.maxAngularSpeed;
+    snake.speed = config.speed;
+  }
+
+  function drawSnakeGlow(snake) {
+    let glowWidth = getGlowWidthByMass(snake.mass);
+    let baseAlpha = 0.5;
+    let updateInterval = GAME_CONSTANTS.GLOW_OPTIMIZATION.GLOW_UPDATE_INTERVAL;
+
+    // Оптимизация для сверхбольших змей
+    if (snake.mass >= GAME_CONSTANTS.GLOW_OPTIMIZATION.ultraLargeGlow.massThreshold) {
+      glowWidth = GAME_CONSTANTS.GLOW_OPTIMIZATION.ultraLargeGlow.width;
+      baseAlpha = GAME_CONSTANTS.GLOW_OPTIMIZATION.ultraLargeGlow.baseAlpha;
+      updateInterval = GAME_CONSTANTS.GLOW_OPTIMIZATION.ultraLargeGlow.updateInterval;
+    }
+
+    // ...draw glow using glowWidth, baseAlpha, updateInterval...
   }
 });

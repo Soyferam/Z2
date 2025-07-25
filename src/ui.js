@@ -1,4 +1,4 @@
-// src/ui.js
+// src/ui.js - Обновленная версия без профита
 import { GAME_CONSTANTS } from "./constants.js";
 
 export class UIManager {
@@ -223,14 +223,28 @@ export class UIManager {
     }
   }
 
-  updateTokens(delta) {
-    this.tokens = Math.max(0, this.tokens + delta);
-    this.tokenDisplay.textContent = Math.floor(this.tokens).toString();
-    this.profitDisplay.textContent = `$${Math.floor(this.tokens * 0.01).toFixed(2)}`;
+  // ОБНОВЛЕННАЯ функция updateTokens - УБРАН профит
+  updateTokens(newTokenValue, allowProfit = false) {
+    // Обновляем только количество токенов без расчета профита
+    this.tokens = Math.max(0, newTokenValue);
+    
+    // Обновляем отображение токенов
+    if (this.tokenDisplay) {
+      this.tokenDisplay.textContent = Math.floor(this.tokens).toString();
+    }
+    
+    // УБРАН ПРОФИТ - теперь профит всегда $0.00
+    if (this.profitDisplay) {
+      this.profitDisplay.textContent = "$0.00";
+    }
+    
+    // Обновляем состояние кнопки буста для мобильных устройств
     if (this.isMobile && this.boostButton) {
       this.boostButton.style.opacity = this.tokens > 11 ? '1' : '0.5';
       this.boostButton.style.pointerEvents = this.tokens > 11 ? 'auto' : 'none';
     }
+    
+    console.log(`Tokens updated: ${Math.floor(this.tokens)} (profit calculation disabled)`);
   }
 
   getCurrentSpeed() {
