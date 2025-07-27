@@ -1,13 +1,15 @@
-// src/ui.js - Обновленная версия без профита
 import { GAME_CONSTANTS } from "./constants.js";
 
 export class UIManager {
-  constructor(app, gameWorld, snakeHead, worldRadius, setMassCallback) {
+  constructor(app, gameWorld, snakeHead, worldRadius, setMassCallback, foodManager, bots) {
     this.app = app;
     this.gameWorld = gameWorld;
     this.snakeHead = snakeHead;
     this.worldRadius = worldRadius;
+    this.foodManager = foodManager;
+    this.bots = bots;
     this.tokens = 0;
+    this.tonBalance = 1;
     this.isBoosting = false;
     this.normalSpeed = GAME_CONSTANTS.BASE_SPEED;
     this.boostSpeed = GAME_CONSTANTS.BOOST_SPEED;
@@ -15,15 +17,14 @@ export class UIManager {
     this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     this.currentScale = this.isMobile ? GAME_CONSTANTS.MIN_SCALE.mobile : GAME_CONSTANTS.MIN_SCALE.desktop;
     this.setMassCallback = setMassCallback;
+    this.targetAngle = -Math.PI / 2;
 
-    // UI элементы
     this.tokenDisplay = document.querySelector(".token-amount");
-    this.profitDisplay = document.querySelector(".profit-amount");
+    this.balanceDisplay = document.querySelector(".balance-amount");
     this.exitButton = document.getElementById("exit-btn");
     this.quickExitButton = document.getElementById("quick-exit-btn");
     this.boostButton = document.getElementById("boost-btn");
 
-    // Developer UI
     this.isDevMode = new URLSearchParams(window.location.search).get("dev") === "true";
     this.devContainer = null;
     this.devInput = null;
@@ -36,263 +37,245 @@ export class UIManager {
     this.initDevUI();
     this.handleResize();
     window.addEventListener("resize", () => this.handleResize());
+
+    this.updateBalanceDisplay();
+  }
+
+  addTon(amount) {
+    this.tonBalance += amount;
+    this.updateBalanceDisplay();
+    console.log(`Добавлено ${amount} TON. Новый баланс: ${this.tonBalance.toFixed(2)} TON`);
+  }
+
+  updateBalanceDisplay() {
+    if (this.balanceDisplay) {
+      this.balanceDisplay.textContent = `${this.tonBalance.toFixed(2)} TON`;
+    }
+  }
+
+  updateTokens(newTokenValue, allowProfit = false) {
+    this.tokens = Math.max(0, newTokenValue);
+    if (this.tokenDisplay) {
+      this.tokenDisplay.textContent = Math.floor(this.tokens).toString();
+    }
+    if (this.boostButton) {
+      this.boostButton.style.opacity = this.tokens > 11 ? "1" : "0.5";
+      this.boostButton.style.pointerEvents = this.tokens > 11 ? "auto" : "none";
+      this.boostButton.disabled = this.tokens <= 11;
+    }
+    console.log(`Токены обновлены: ${Math.floor(this.tokens)}`);
   }
 
   initMinimap() {
-    const minimapElement = document.getElementById("minimap");
-    if (!minimapElement) {
-      console.error("Minimap element (#minimap) not found in DOM!");
+    this.minimapCanvas = document.getElementById("minimap");
+    
+    if (!(this.minimapCanvas instanceof HTMLCanvasElement)) {
+      console.warn("Элемент #minimap не является canvas, создаём новый");
+      if (this.minimapCanvas) {
+        this.minimapCanvas.remove();
+      }
+      this.minimapCanvas = document.createElement("canvas");
+      this.minimapCanvas.id = "minimap";
+      this.minimapCanvas.className = "minimap";
+      document.body.appendChild(this.minimapCanvas);
+    }
+
+    this.minimapCanvas.width = 150;
+    this.minimapCanvas.height = 150;
+
+    try {
+      this.minimapCtx = this.minimapCanvas.getContext("2d");
+      if (!this.minimapCtx) {
+        console.error("Не удалось получить 2D контекст для миникарты");
+        return;
+      }
+    } catch (error) {
+      console.error(`Ошибка инициализации контекста миникарты: ${error}`);
       return;
     }
-    this.updateMinimapSize();
 
-    this.minimapApp = new PIXI.Application({
-      width: this.minimapSize,
-      height: this.minimapSize,
-      backgroundColor: 0x000000,
-      backgroundAlpha: 0,
-      resolution: window.devicePixelRatio || 1,
-      autoDensity: true,
-    });
-    minimapElement.appendChild(this.minimapApp.view);
-    this.minimapWorld = new PIXI.Container();
-    this.minimapWorld.sortableChildren = true;
-    this.minimapApp.stage.addChild(this.minimapWorld);
+    this.minimapCanvas.style.position = "fixed";
+    this.minimapCanvas.style.top = this.isMobile ? "2vh" : "4vh";
+    this.minimapCanvas.style.left = this.isMobile ? "2vw" : "4vw";
+    this.minimapCanvas.style.width = this.isMobile ? "100px" : "150px";
+    this.minimapCanvas.style.height = this.isMobile ? "100px" : "150px";
+    this.minimapCanvas.style.zIndex = "100";
+    console.log("Миникарта инициализирована");
+  }
 
-    const mask = new PIXI.Graphics();
-    mask.drawCircle(this.minimapSize / 2, this.minimapSize / 2, this.minimapSize / 2);
-    this.minimapWorld.addChild(mask);
-
-    this.minimapScale = this.minimapSize / (2 * this.worldRadius);
-    this.minimapWorld.x = this.minimapSize / 2;
-    this.minimapWorld.y = this.minimapSize / 2;
-
-    const minimapGrid = new PIXI.Graphics();
-    minimapGrid.lineStyle(1, 0x333333, 0.5);
-    for (let r = GAME_CONSTANTS.GRID_SIZE; r <= this.worldRadius; r += GAME_CONSTANTS.GRID_SIZE) {
-      minimapGrid.drawCircle(0, 0, r * this.minimapScale);
+  updateMinimap() {
+    if (!this.minimapCtx) {
+      console.warn("Контекст миникарты недоступен, пропуск обновления");
+      return;
     }
-    minimapGrid.zIndex = 0;
-    this.minimapWorld.addChild(minimapGrid);
 
-    const minimapBoundary = new PIXI.Graphics();
-    minimapBoundary.lineStyle(1, 0xFFFFFF, 0.7);
-    minimapBoundary.drawCircle(0, 0, this.worldRadius * this.minimapScale);
-    minimapBoundary.zIndex = 1;
-    this.minimapWorld.addChild(minimapBoundary);
+    const ctx = this.minimapCtx;
+    const minimapSize = this.minimapCanvas.width;
+    const scale = minimapSize / (2 * this.worldRadius);
+    ctx.clearRect(0, 0, minimapSize, minimapSize);
 
-    this.minimapTestDot = new PIXI.Graphics();
-    this.minimapTestDot.lineStyle(2, 0x00FF00, 0.7);
-    this.minimapTestDot.moveTo(-5, 0);
-    this.minimapTestDot.lineTo(5, 0);
-    this.minimapTestDot.moveTo(0, -5);
-    this.minimapTestDot.lineTo(0, 5);
-    this.minimapTestDot.alpha = 0.7;
-    this.minimapTestDot.zIndex = 10;
-    this.minimapWorld.addChild(this.minimapTestDot);
+    ctx.beginPath();
+    ctx.moveTo(minimapSize / 2, minimapSize / 2 - 5);
+    ctx.lineTo(minimapSize / 2, minimapSize / 2 + 5);
+    ctx.moveTo(minimapSize / 2 - 5, minimapSize / 2);
+    ctx.lineTo(minimapSize / 2 + 5, minimapSize / 2);
+    ctx.strokeStyle = "#FFFFFF";
+    ctx.lineWidth = 2;
+    ctx.stroke();
 
-    this.minimapSnake = new PIXI.Graphics();
-    this.minimapSnake.beginFill(0xFFFFFF, 0.7);
-    this.minimapSnake.drawCircle(0, 0, 3);
-    this.minimapSnake.endFill();
-    this.minimapSnake.alpha = 0.7;
-    this.minimapSnake.zIndex = 10;
-    this.minimapWorld.addChild(this.minimapSnake);
+    const playerX = (this.snakeHead.x - GAME_CONSTANTS.WORLD_CENTER.x) * scale + minimapSize / 2;
+    const playerY = (this.snakeHead.y - GAME_CONSTANTS.WORLD_CENTER.y) * scale + minimapSize / 2;
+    ctx.beginPath();
+    ctx.arc(playerX, playerY, 3, 0, 2 * Math.PI);
+    ctx.fillStyle = "#FF0000";
+    ctx.fill();
   }
 
   initJoystick() {
     if (this.isMobile) {
-      this.joystick = nipplejs.create({
-        zone: document.getElementById("joystick"),
-        mode: "static",
-        position: { left: "50%", top: "50%" },
-        color: "white",
-        size: 100,
-      });
-      this.joystick.on("move", (evt, data) => {
-        if (data.direction) {
-          this.targetAngle = -data.angle.radian;
-          this.targetAngle = ((this.targetAngle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
-          if (this.targetAngle > Math.PI) this.targetAngle -= 2 * Math.PI;
+      if (this.joystick) {
+        this.joystick.destroy();
+        this.joystick = null;
+      }
+      this.joystickContainer = document.getElementById("joystick");
+      if (!this.joystickContainer) {
+        console.warn("Контейнер джойстика не найден, создаём новый");
+        this.joystickContainer = document.createElement("div");
+        this.joystickContainer.id = "joystick";
+        document.body.appendChild(this.joystickContainer);
+      }
+      try {
+        this.joystick = nipplejs.create({
+          zone: this.joystickContainer,
+          mode: "static",
+          position: { bottom: "10vh", left: "14vw" },
+          color: "white",
+          size: 100,
+        });
+
+        this.joystick.on("move", (evt, data) => {
+          if (data.direction) {
+            this.targetAngle = data.angle.radian - Math.PI / 2;
+          }
+        });
+
+        this.joystick.on("end", () => {
+          // Не меняем угол при отпускании джойстика
+        });
+      } catch (error) {
+        console.error(`Ошибка инициализации джойстика: ${error}`);
+      }
+    } else {
+      if (this.joystick) {
+        this.joystick.destroy();
+        this.joystick = null;
+      }
+      if (this.joystickContainer) {
+        this.joystickContainer.remove();
+        this.joystickContainer = null;
+      }
+    }
+  }
+
+  initEventListeners() {
+    if (this.boostButton && this.isMobile) {
+      console.log("Кнопка буста найдена, настройка событий для мобильных");
+      this.boostButton.removeEventListener("touchstart", this.handleTouchStart);
+      this.boostButton.removeEventListener("touchend", this.handleTouchEnd);
+
+      this.handleTouchStart = (e) => {
+        e.preventDefault();
+        if (this.tokens > 11) {
+          this.isBoosting = true;
+          console.log("Буст активирован через касание");
+        } else {
+          console.log(`Буст не активирован: недостаточно токенов (${this.tokens})`);
         }
+      };
+      this.handleTouchEnd = () => {
+        this.isBoosting = false;
+        console.log("Буст деактивирован через окончание касания");
+      };
+
+      this.boostButton.addEventListener("touchstart", this.handleTouchStart);
+      this.boostButton.addEventListener("touchend", this.handleTouchEnd);
+      this.boostButton.disabled = this.tokens <= 11;
+    } else if (this.boostButton) {
+      console.log("Кнопка буста найдена, но игнорируется на десктопе");
+      this.boostButton.disabled = true;
+    } else {
+      console.warn("Кнопка буста не найдена");
+    }
+
+    if (this.exitButton) {
+      this.exitButton.addEventListener("click", () => {
+        alert("Exit: Баланс сохранён.");
+        window.location.reload();
       });
-      this.joystick.on("end", () => {});
+    }
+
+    if (this.quickExitButton) {
+      this.quickExitButton.addEventListener("click", () => {
+        alert("Quick Exit: Баланс сохранён с 10% штрафом.");
+        window.location.reload();
+      });
     }
   }
 
   initDevUI() {
     if (this.isDevMode) {
-      console.log("Developer mode enabled");
       this.devContainer = document.createElement("div");
-      this.devContainer.className = "dev-container";
+      this.devContainer.style.position = "absolute";
+      this.devContainer.style.top = "20vh";
+      this.devContainer.style.right = "4vw";
+      this.devContainer.style.background = "rgba(255, 255, 255, 0.08)";
+      this.devContainer.style.padding = "10px";
+      this.devContainer.style.color = "white";
+      this.devContainer.style.zIndex = "1000";
       document.body.appendChild(this.devContainer);
 
       this.devInput = document.createElement("input");
       this.devInput.type = "number";
-      this.devInput.placeholder = "Enter tokens";
-      this.devInput.className = "dev-input";
+      this.devInput.placeholder = "Set snake mass";
+      this.devInput.style.marginRight = "10px";
       this.devContainer.appendChild(this.devInput);
 
       this.devButton = document.createElement("button");
-      this.devButton.textContent = "Set Tokens";
-      this.devButton.className = "dev-btn";
+      this.devButton.textContent = "Set Mass";
       this.devButton.addEventListener("click", () => {
         const newMass = parseFloat(this.devInput.value);
-        if (isNaN(newMass) || newMass < 10) {
-          alert("Введите число ≥ 10");
-          return;
+        if (!isNaN(newMass) && newMass >= 10) {
+          this.setMassCallback(newMass);
         }
-        this.setMassCallback(newMass);
-        this.devInput.value = "";
       });
       this.devContainer.appendChild(this.devButton);
 
       this.devResetButton = document.createElement("button");
-      this.devResetButton.textContent = "Reset Tokens";
-      this.devResetButton.className = "dev-btn";
+      this.devResetButton.textContent = "Reset Game";
+      this.devResetButton.style.marginLeft = "10px";
       this.devResetButton.addEventListener("click", () => {
-        this.setMassCallback(10);
-        this.devInput.value = "";
+        window.location.reload();
       });
       this.devContainer.appendChild(this.devResetButton);
     }
   }
 
-  initEventListeners() {
-    this.app.stage.on("pointerdown", () => {
-      if (!this.isMobile) {
-        this.isBoosting = true;
-        this.currentSpeed = this.boostSpeed;
-      }
-    });
-    this.app.stage.on("pointerup", () => {
-      if (!this.isMobile) {
-        this.isBoosting = false;
-        this.currentSpeed = this.normalSpeed;
-      }
-    });
-
-    this.boostButton.addEventListener("touchstart", (e) => {
-      e.preventDefault();
-      if (this.isMobile && this.tokens > 11) {
-        this.isBoosting = true;
-        this.currentSpeed = this.boostSpeed;
-      }
-    });
-    this.boostButton.addEventListener("touchend", () => {
-      if (this.isMobile) {
-        this.isBoosting = false;
-        this.currentSpeed = this.normalSpeed;
-      }
-    });
-
-    this.exitButton.addEventListener("click", () => {
-      console.log("Выход начат, задержка 10 секунд...");
-      setTimeout(() => {
-        console.log("Игра завершена (обычный выход)");
-        window.location.href = "index.html";
-      }, 10000);
-    });
-
-    this.quickExitButton.addEventListener("click", () => {
-      console.log("Быстрый выход начат, задержка 2 секунды с комиссией...");
-      setTimeout(() => {
-        console.log("Игра завершена (быстрый выход)");
-        window.location.href = "index.html";
-      }, 2000);
-    });
-  }
-
-  updateMinimap() {
-    this.minimapTestDot.x = 0;
-    this.minimapTestDot.y = 0;
-
-    if (this.snakeHead && this.snakeHead.x !== undefined && this.snakeHead.y !== undefined) {
-      const snakeX = (this.snakeHead.x - GAME_CONSTANTS.WORLD_CENTER.x) * this.minimapScale;
-      const snakeY = (this.snakeHead.y - GAME_CONSTANTS.WORLD_CENTER.y) * this.minimapScale;
-      const maxRadius = this.worldRadius * this.minimapScale;
-      const distance = Math.sqrt(snakeX * snakeX + snakeY * snakeY);
-      if (distance > maxRadius) {
-        const angle = Math.atan2(snakeY, snakeX);
-        this.minimapSnake.x = maxRadius * Math.cos(angle);
-        this.minimapSnake.y = maxRadius * Math.sin(angle);
-      } else {
-        this.minimapSnake.x = snakeX;
-        this.minimapSnake.y = snakeY;
-      }
+  handleResize() {
+    this.app.renderer.resize(window.innerWidth, window.innerHeight);
+    this.app.stage.hitArea = new PIXI.Rectangle(0, 0, window.innerWidth, window.innerHeight);
+    if (this.minimapCanvas) {
+      this.minimapCanvas.style.top = this.isMobile ? "2vh" : "4vh";
+      this.minimapCanvas.style.left = this.isMobile ? "2vw" : "4vw";
+      this.minimapCanvas.style.width = this.isMobile ? "100px" : "150px";
+      this.minimapCanvas.style.height = this.isMobile ? "100px" : "150px";
     }
-  }
-
-  // ОБНОВЛЕННАЯ функция updateTokens - УБРАН профит
-  updateTokens(newTokenValue, allowProfit = false) {
-    // Обновляем только количество токенов без расчета профита
-    this.tokens = Math.max(0, newTokenValue);
-    
-    // Обновляем отображение токенов
-    if (this.tokenDisplay) {
-      this.tokenDisplay.textContent = Math.floor(this.tokens).toString();
+    if (this.joystickContainer && this.isMobile) {
+      this.joystickContainer.style.bottom = "10vh";
+      this.joystickContainer.style.left = "14vw";
     }
-    
-    // УБРАН ПРОФИТ - теперь профит всегда $0.00
-    if (this.profitDisplay) {
-      this.profitDisplay.textContent = "$0.00";
-    }
-    
-    // Обновляем состояние кнопки буста для мобильных устройств
-    if (this.isMobile && this.boostButton) {
-      this.boostButton.style.opacity = this.tokens > 11 ? '1' : '0.5';
-      this.boostButton.style.pointerEvents = this.tokens > 11 ? 'auto' : 'none';
-    }
-    
-    console.log(`Tokens updated: ${Math.floor(this.tokens)} (profit calculation disabled)`);
-  }
-
-  getCurrentSpeed() {
-    return this.currentSpeed;
   }
 
   getTargetAngle() {
-    return this.targetAngle !== undefined ? this.targetAngle : -Math.PI / 2;
-  }
-
-  updateMinimapSize() {
-    const minimapElement = document.getElementById("minimap");
-    this.minimapSize = parseInt(getComputedStyle(minimapElement).width);
-    if (this.minimapApp) {
-      this.minimapApp.renderer.resize(this.minimapSize, this.minimapSize);
-      this.minimapWorld.x = this.minimapSize / 2;
-      this.minimapWorld.y = this.minimapSize / 2;
-      this.minimapScale = this.minimapSize / (2 * this.worldRadius);
-
-      const mask = this.minimapWorld.getChildAt(0);
-      if (mask) {
-        mask.clear();
-        mask.drawCircle(this.minimapSize / 2, this.minimapSize / 2, this.minimapSize / 2);
-      }
-
-      const grid = this.minimapWorld.getChildAt(1);
-      const boundary = this.minimapWorld.getChildAt(2);
-      if (grid && boundary) {
-        grid.clear();
-        grid.lineStyle(1, 0x333333, 0.5);
-        for (let r = GAME_CONSTANTS.GRID_SIZE; r <= this.worldRadius; r += GAME_CONSTANTS.GRID_SIZE) {
-          grid.drawCircle(0, 0, r * this.minimapScale);
-        }
-        boundary.clear();
-        boundary.lineStyle(1, 0xFFFFFF, 0.7);
-        boundary.drawCircle(0, 0, this.worldRadius * this.minimapScale);
-      }
-    }
-  }
-
-  handleResize() {
-    this.updateMinimapSize();
-    if (this.minimapTestDot) {
-      this.minimapTestDot.x = 0;
-      this.minimapTestDot.y = 0;
-    }
-    if (this.minimapSnake) {
-      this.updateMinimap();
-    }
+    return this.targetAngle;
   }
 }

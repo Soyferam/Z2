@@ -5,20 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Crypto Snake</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐍</text></svg>">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="src/style.css">
 </head>
 <body>
   <div id="game-container"></div>
   <div id="minimap" class="minimap"></div>
   <div id="profit-box" class="profit-box">
     <div class="profit-text">
-      <div class="profit-line">Profit: <span class="profit-amount">$0.00</span></div>
       <div class="tokens-line">Tokens: <span class="token-amount">0</span></div>
+      <div class="balance-line">Balance: <span class="balance-amount">1.00 TON</span></div>
     </div>
   </div>
   <div id="exit-buttons" class="exit-buttons">
     <button id="exit-btn" class="exit-btn">Exit</button>
-    <button id="quick-exit-btn" class="quick-exit-btn">Quick Exit</button>
+    <button id="quick-exit-btn" class="quick-exit-btn">Quick Exit (-10%)</button>
   </div>
   <button id="boost-btn" class="boost-btn">Boost</button>
   <div id="joystick" class="joystick"></div>

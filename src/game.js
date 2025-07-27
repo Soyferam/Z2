@@ -1,8 +1,14 @@
 import { FoodManager } from "./food.js";
 import { UIManager } from "./ui.js";
 import { GAME_CONSTANTS } from "./constants.js";
+import { BotSnake } from "./bots.js";
+
+console.log("Attempting to load bots.js");
+
+let bots = [];
 
 window.addEventListener("DOMContentLoaded", async () => {
+  console.log("Инициализация игры начата");
   const app = new PIXI.Application({
     width: window.innerWidth,
     height: window.innerHeight,
@@ -12,28 +18,51 @@ window.addEventListener("DOMContentLoaded", async () => {
     resizeTo: window,
   });
 
-  document.getElementById("game-container").appendChild(app.view);
+  const gameContainer = document.getElementById("game-container");
+  if (!gameContainer) {
+    console.error("Контейнер игры (#game-container) не найден!");
+    alert("Ошибка: контейнер игры не найден.");
+    return;
+  }
+  gameContainer.appendChild(app.view);
   app.stage.interactive = true;
   app.stage.hitArea = new PIXI.Rectangle(0, 0, app.screen.width, app.screen.height);
+  console.log("PIXI приложение создано, canvas добавлен в #game-container");
 
-  // Загрузка текстур
+  const colorToTextureMap = {
+    '0xff3333': 'assets/eye-area-red.png',
+    '0x33ff33': 'assets/eye-area-green.png',
+    '0xffff33': 'assets/eye-area-yellow.png',
+    '0xff33ff': 'assets/eye-area-purple.png',
+    '0x33ffff': 'assets/eye-area-cyan.png',
+    '0xff9933': 'assets/eye-area-orange.png',
+    '0x9933ff': 'assets/eye-area-magenta.png',
+    '0x3333ff': 'assets/eye-area-blue.png',
+  };
+
   let textures;
   try {
     textures = await PIXI.Assets.load([
       "assets/snake-head.png",
       "assets/token-food.png",
+      "assets/ton.png",
+      ...Object.values(colorToTextureMap),
     ]);
+    console.log("Текстуры загружены:", Object.keys(textures));
+    if (!textures["assets/snake-head.png"]) {
+      throw new Error("Текстура snake-head.png не загружена");
+    }
   } catch (error) {
     console.error("Ошибка загрузки текстур:", error);
+    alert("Ошибка загрузки текстур. Проверьте файлы в папке assets.");
     return;
   }
 
-  // Контейнер игрового мира
   const gameWorld = new PIXI.Container();
   gameWorld.sortableChildren = true;
   app.stage.addChild(gameWorld);
+  console.log("gameWorld добавлен в stage");
 
-  // Круглый фон и сетка
   const grid = new PIXI.Graphics();
   grid.lineStyle(1, 0x333333, 0.5);
   for (let r = GAME_CONSTANTS.GRID_SIZE; r <= GAME_CONSTANTS.WORLD_RADIUS; r += GAME_CONSTANTS.GRID_SIZE) {
@@ -47,34 +76,47 @@ window.addEventListener("DOMContentLoaded", async () => {
     );
   }
   gameWorld.addChild(grid);
+  console.log("Сетка мира отрисована");
 
-  // Граница карты
   const boundary = new PIXI.Graphics();
   boundary.lineStyle(2, 0xFFFFFF, 1);
   boundary.drawCircle(GAME_CONSTANTS.WORLD_CENTER.x, GAME_CONSTANTS.WORLD_CENTER.y, GAME_CONSTANTS.WORLD_RADIUS);
   gameWorld.addChild(boundary);
+  console.log("Граница мира отрисована");
 
-  // Голова змейки
   const snakeHead = new PIXI.Sprite(textures["assets/snake-head.png"]);
   snakeHead.anchor.set(0.5);
-  snakeHead.width = GAME_CONSTANTS.SNAKE_GROWTH.WIDTH_BASE;
-  snakeHead.height = GAME_CONSTANTS.SNAKE_GROWTH.WIDTH_BASE;
+  const initialWidth = GAME_CONSTANTS.SNAKE_GROWTH.WIDTH_BASE + Math.sqrt(GAME_CONSTANTS.BASE_MASS) * GAME_CONSTANTS.SNAKE_GROWTH.WIDTH_MULTIPLIER;
+  snakeHead.width = initialWidth;
+  snakeHead.height = initialWidth;
   snakeHead.x = GAME_CONSTANTS.WORLD_CENTER.x;
   snakeHead.y = GAME_CONSTANTS.WORLD_CENTER.y;
   snakeHead.zIndex = 1;
+  snakeHead.visible = true;
+  snakeHead.alpha = 1;
   gameWorld.addChild(snakeHead);
+  console.log("Голова змейки игрока создана:", {
+    x: snakeHead.x,
+    y: snakeHead.y,
+    width: snakeHead.width,
+    visible: snakeHead.visible,
+    alpha: snakeHead.alpha
+  });
 
-  // Тело змейки
   const snakeBodyGraphics = new PIXI.Graphics();
   snakeBodyGraphics.zIndex = 0;
+  snakeBodyGraphics.visible = true;
+  snakeBodyGraphics.alpha = 1;
   gameWorld.addChild(snakeBodyGraphics);
+  console.log("Графика тела змейки создана");
 
-  // Оптимизированное свечение тела
   const bodyGlowGraphics = new PIXI.Graphics();
   bodyGlowGraphics.zIndex = -0.5;
+  bodyGlowGraphics.visible = true;
+  bodyGlowGraphics.alpha = 1;
   gameWorld.addChild(bodyGlowGraphics);
+  console.log("Графика свечения тела создана");
 
-  // Система сегментов змейки
   const snakeSegments = [];
   let snakeMass = GAME_CONSTANTS.BASE_MASS;
   let targetMass = GAME_CONSTANTS.BASE_MASS;
@@ -82,45 +124,123 @@ window.addEventListener("DOMContentLoaded", async () => {
   let orbSpawnTimer = 0;
   let growthLerp = 1;
   let wasBoosting = false;
-  let glowUpdateCounter = 0; // Счетчик для оптимизации обновления свечения
+  let glowUpdateCounter = 0;
+  let initialSafeFrames = 60;
 
-  // Менеджеры
-  const foodManager = new FoodManager(gameWorld, GAME_CONSTANTS.WORLD_RADIUS, textures["assets/token-food.png"]);
+  const initialSegmentCount = Math.floor(GAME_CONSTANTS.SNAKE_GROWTH.LENGTH_BASE / (initialWidth * GAME_CONSTANTS.SNAKE_GROWTH.SEGMENT_SPACING));
+  for (let i = 0; i < initialSegmentCount; i++) {
+    snakeSegments.push({
+      x: snakeHead.x,
+      y: snakeHead.y + i * initialWidth * GAME_CONSTANTS.SNAKE_GROWTH.SEGMENT_SPACING,
+      width: initialWidth,
+    });
+  }
+  console.log("Сегменты змейки игрока созданы:", snakeSegments.length, "сегментов");
+
+  const foodManager = new FoodManager(
+    gameWorld,
+    GAME_CONSTANTS.WORLD_RADIUS,
+    textures["assets/token-food.png"],
+    textures["assets/ton.png"],
+    [{ head: snakeHead, alive: true }, ...bots]
+  );
   foodManager.initialize();
+  console.log("FoodManager инициализирован");
+
   const uiManager = new UIManager(app, gameWorld, snakeHead, GAME_CONSTANTS.WORLD_RADIUS, (newMass) => {
     targetMass = Math.max(10, newMass);
     snakeMass = targetMass;
-    // УБРАН ПРОФИТ - токены обновляются без профита
     uiManager.updateTokens(snakeMass, false);
     growthLerp = 0;
-  });
+  }, foodManager, bots);
+  console.log("UIManager инициализирован");
 
-  // Инициализация токенов без профита
+  // Добавляем обработку буста через мышь на десктопе
+  if (!uiManager.isMobile) {
+    app.stage.on("mousedown", () => {
+      if (snakeMass > 11) {
+        uiManager.isBoosting = true;
+        console.log("Буст активирован через нажатие мыши");
+      } else {
+        console.log("Буст не активирован: недостаточно массы", snakeMass);
+      }
+    });
+    app.stage.on("mouseup", () => {
+      uiManager.isBoosting = false;
+      console.log("Буст деактивирован через отпускание мыши");
+    });
+  }
+
+  function createBot() {
+    const mass = 10 + Math.random() * 50;
+    const minDistance = 500;
+    const maxDistance = 1000;
+    let startX, startY;
+    let attempts = 0;
+    const maxAttempts = 10;
+    let isValidPosition = false;
+
+    do {
+      const angle = Math.random() * 2 * Math.PI;
+      const distance = minDistance + Math.random() * (maxDistance - minDistance);
+      startX = snakeHead.x + Math.cos(angle) * distance;
+      startY = snakeHead.y + Math.sin(angle) * distance;
+      const dx = startX - GAME_CONSTANTS.WORLD_CENTER.x;
+      const dy = startY - GAME_CONSTANTS.WORLD_CENTER.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const maxDist = GAME_CONSTANTS.WORLD_RADIUS * 0.8;
+      if (dist > maxDist) {
+        const angleToCenter = Math.atan2(dy, dx);
+        startX = GAME_CONSTANTS.WORLD_CENTER.x + Math.cos(angleToCenter) * maxDist;
+        startY = GAME_CONSTANTS.WORLD_CENTER.y + Math.sin(angleToCenter) * maxDist;
+      }
+      const dxPlayer = startX - snakeHead.x;
+      const dyPlayer = startY - snakeHead.y;
+      const distToPlayer = Math.sqrt(dxPlayer * dxPlayer + dyPlayer * dyPlayer);
+      isValidPosition = distToPlayer >= minDistance;
+      attempts++;
+    } while (!isValidPosition && attempts < maxAttempts);
+
+    if (!isValidPosition) {
+      console.warn("Не удалось найти подходящую позицию для бота, используется запасная");
+      startX = GAME_CONSTANTS.WORLD_CENTER.x + (Math.random() - 0.5) * GAME_CONSTANTS.WORLD_RADIUS * 0.5;
+      startY = GAME_CONSTANTS.WORLD_CENTER.y + (Math.random() - 0.5) * GAME_CONSTANTS.WORLD_RADIUS * 0.5;
+    }
+
+    const color = GAME_CONSTANTS.BOT_COLORS[Math.floor(Math.random() * GAME_CONSTANTS.BOT_COLORS.length)];
+    const headTexturePath = colorToTextureMap[`0x${color.toString(16).padStart(6, "0")}`] || "assets/snake-head.png";
+    console.log(`Создаём бота: масса=${mass}, позиция=(${startX}, ${startY}), цвет=0x${color.toString(16).padStart(6, "0")}, текстура=${headTexturePath}`);
+    const bot = new BotSnake(gameWorld, textures, mass, startX, startY, foodManager, color, snakeHead, app);
+    bots.push(bot);
+  }
+
+  for (let i = 0; i < GAME_CONSTANTS.BOT_COUNT; i++) {
+    createBot();
+  }
+  console.log(`Создано ботов: ${bots.length}`);
+
   uiManager.updateTokens(Math.floor(snakeMass), false);
 
-  // Инициализация камеры
   uiManager.currentScale = uiManager.isMobile ? GAME_CONSTANTS.MIN_SCALE.mobile : GAME_CONSTANTS.MIN_SCALE.desktop;
   gameWorld.x = -snakeHead.x * uiManager.currentScale + app.screen.width / 2;
   gameWorld.y = -snakeHead.y * uiManager.currentScale + app.screen.height / 2;
   gameWorld.scale.set(uiManager.currentScale);
+  console.log("Камера инициализирована:", {
+    gameWorldX: gameWorld.x,
+    gameWorldY: gameWorld.y,
+    scale: uiManager.currentScale
+  });
 
-  // Функция получения параметров поворота по массе
-  function getRotationParams(mass) {
-    const configs = GAME_CONSTANTS.ROTATION_CONFIG;
-    for (const [key, config] of Object.entries(configs)) {
-      if (mass >= config.massRange[0] && mass < config.massRange[1]) {
-        return config;
-      }
-    }
-    return configs.huge; // По умолчанию для очень больших змей
+  function calculateRotationSpeed(mass) {
+    const config = GAME_CONSTANTS.ROTATION_FORMULA;
+    let rotationSpeed = config.BASE_ROTATION_SPEED - (mass * config.MASS_SLOWDOWN_FACTOR);
+    return Math.max(config.MIN_ROTATION_SPEED, Math.min(config.MAX_ROTATION_SPEED, rotationSpeed));
   }
 
-  // Функция получения параметров свечения по массе (исправлено)
   function getGlowParams(mass) {
     const configs = GAME_CONSTANTS.GLOW_OPTIMIZATION;
     let foundConfig = null;
     for (const [key, config] of Object.entries(configs)) {
-      // Проверяем, что есть massRange
       if (config && config.massRange && Array.isArray(config.massRange)) {
         if (mass >= config.massRange[0] && mass < config.massRange[1]) {
           foundConfig = config;
@@ -128,106 +248,77 @@ window.addEventListener("DOMContentLoaded", async () => {
         }
       }
     }
-    // Если не найдено, возвращаем дефолтные параметры для больших змей
     return foundConfig || configs.large;
   }
 
-  // Функция расчета размеров змейки
   function calculateSnakeParams(mass) {
     const baseLength = GAME_CONSTANTS.SNAKE_GROWTH.LENGTH_BASE;
     const lengthMultiplier = GAME_CONSTANTS.SNAKE_GROWTH.LENGTH_MULTIPLIER;
     const length = baseLength + mass * lengthMultiplier;
-    
     const baseWidth = GAME_CONSTANTS.SNAKE_GROWTH.WIDTH_BASE;
     const widthMultiplier = GAME_CONSTANTS.SNAKE_GROWTH.WIDTH_MULTIPLIER;
     const width = baseWidth + Math.sqrt(mass) * widthMultiplier;
-    
     return { width, length };
   }
 
-  // Функция обновления размера головы
   function updateSnakeSize() {
     const { width } = calculateSnakeParams(snakeMass);
     snakeHead.width = width;
     snakeHead.height = width;
+    console.log("Обновлён размер головы змейки:", width);
     return { width };
   }
 
-  // Функция расчета скорости
-  function calculateSpeed(mass, isBoosting) {
-    const baseSpeed = GAME_CONSTANTS.BASE_SPEED;
-    const boostSpeed = GAME_CONSTANTS.BOOST_SPEED;
-    
-    const speedMultiplier = Math.max(GAME_CONSTANTS.SPEED_REDUCTION.MIN_SPEED, 
-      1 - Math.log(mass / 10) * GAME_CONSTANTS.SPEED_REDUCTION.BASE_FACTOR);
-    
-    const currentBaseSpeed = baseSpeed * speedMultiplier;
-    const currentBoostSpeed = boostSpeed * speedMultiplier;
-    
-    return isBoosting ? currentBoostSpeed : currentBaseSpeed;
-  }
-
-  // Функция обновления сегментов змейки
   function updateSnakeSegments(delta, canBoost) {
     const { width, length } = calculateSnakeParams(snakeMass);
-    
-    const segmentDistance = width * GAME_CONSTANTS.SNAKE_GROWTH.SEGMENT_SPACING;
+    const baseSegmentDistance = width * GAME_CONSTANTS.SNAKE_GROWTH.SEGMENT_SPACING;
+    const segmentDistance = baseSegmentDistance;
     const maxSegments = Math.floor(length / segmentDistance);
-    
     snakeSegments.unshift({
       x: snakeHead.x,
       y: snakeHead.y,
-      width: width
+      width: width,
     });
-    
     for (let i = 1; i < snakeSegments.length; i++) {
       const current = snakeSegments[i];
       const previous = snakeSegments[i - 1];
-      
       const dx = current.x - previous.x;
       const dy = current.y - previous.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
-      
       if (distance > segmentDistance) {
         const angle = Math.atan2(dy, dx);
         current.x = previous.x + Math.cos(angle) * segmentDistance;
         current.y = previous.y + Math.sin(angle) * segmentDistance;
       }
-      
       current.width = width;
     }
-    
     if (snakeSegments.length > maxSegments) {
       snakeSegments.splice(maxSegments);
     }
-    
+    console.log("Сегменты змейки обновлены, количество:", snakeSegments.length);
     return { width, segmentDistance };
   }
 
-  // Функция рисования тела змейки
   function drawSnakeBody() {
     snakeBodyGraphics.clear();
-    
-    if (snakeSegments.length < 2) return;
-
+    if (snakeSegments.length < 2) {
+      console.warn("Недостаточно сегментов для отрисовки тела:", snakeSegments.length);
+      return;
+    }
     for (let i = 0; i < snakeSegments.length; i++) {
       const segment = snakeSegments[i];
       const segmentWidth = segment.width;
-      
       snakeBodyGraphics.beginFill(GAME_CONSTANTS.BODY_COLOR);
       snakeBodyGraphics.drawCircle(segment.x, segment.y, segmentWidth / 2);
       snakeBodyGraphics.endFill();
-      
       if (i > 0) {
         const prevSegment = snakeSegments[i - 1];
         const angle = Math.atan2(segment.y - prevSegment.y, segment.x - prevSegment.x);
         const distance = Math.sqrt((segment.x - prevSegment.x) ** 2 + (segment.y - prevSegment.y) ** 2);
-        
         if (distance > 0) {
           snakeBodyGraphics.beginFill(GAME_CONSTANTS.BODY_COLOR);
           const perpAngle = angle + Math.PI / 2;
           const hw = segmentWidth / 2;
-          
           const x1 = prevSegment.x + Math.cos(perpAngle) * hw;
           const y1 = prevSegment.y + Math.sin(perpAngle) * hw;
           const x2 = prevSegment.x - Math.cos(perpAngle) * hw;
@@ -236,7 +327,6 @@ window.addEventListener("DOMContentLoaded", async () => {
           const y3 = segment.y - Math.sin(perpAngle) * hw;
           const x4 = segment.x + Math.cos(perpAngle) * hw;
           const y4 = segment.y + Math.sin(perpAngle) * hw;
-          
           snakeBodyGraphics.moveTo(x1, y1);
           snakeBodyGraphics.lineTo(x2, y2);
           snakeBodyGraphics.lineTo(x3, y3);
@@ -246,9 +336,9 @@ window.addEventListener("DOMContentLoaded", async () => {
         }
       }
     }
+    console.log("Тело змейки отрисовано");
   }
 
-  // Функция интерполяции цветов
   function interpolateColor(color1, color2, factor) {
     const r = Math.round(color1.r + (color2.r - color1.r) * factor);
     const g = Math.round(color1.g + (color2.g - color1.g) * factor);
@@ -256,7 +346,6 @@ window.addEventListener("DOMContentLoaded", async () => {
     return (r << 16) | (g << 8) | b;
   }
 
-  // Функция преобразования HEX в RGB
   function hexToRgb(hex) {
     const r = (hex >> 16) & 255;
     const g = (hex >> 8) & 255;
@@ -264,47 +353,34 @@ window.addEventListener("DOMContentLoaded", async () => {
     return { r, g, b };
   }
 
-  // ОПТИМИЗИРОВАННАЯ функция рисования ЕДИНОГО свечения вдоль всей змейки (только одна линия по всем точкам)
   function drawOptimizedSnakeGlow(isBoosting, currentWidth) {
     bodyGlowGraphics.clear();
-
     if (!isBoosting || snakeSegments.length < 2) return;
-
     const glowParams = getGlowParams(snakeMass);
     const optimizationConfig = GAME_CONSTANTS.GLOW_OPTIMIZATION;
     glowPulse += glowParams.pulseSpeed;
-
-    // Используем гибкую ширину свечения по массе
     const glowWidth = getGlowWidthByMass(snakeMass) * currentWidth;
     let alpha = glowParams.baseAlpha;
     if (glowParams.useSimplification) {
       alpha *= optimizationConfig.LARGE_SNAKE_SIMPLIFICATION.reducedAlpha;
     }
-
-    // HSV rainbow for slither.io style
     function hsvToRgb(h, s, v) {
-      let f = (n, k = (n + h / 60) % 6) =>
-        v - v * s * Math.max(Math.min(k, 4 - k, 1), 0);
+      let f = (n, k = (n + h / 60) % 6) => v - v * s * Math.max(Math.min(k, 4 - k, 1), 0);
       return {
         r: Math.round(f(5) * 255),
         g: Math.round(f(3) * 255),
         b: Math.round(f(1) * 255)
       };
     }
-
-    // Собираем все точки змейки для единой линии
     const points = [];
     points.push({ x: snakeHead.x, y: snakeHead.y });
     for (let i = 0; i < snakeSegments.length; i++) {
       points.push({ x: snakeSegments[i].x, y: snakeSegments[i].y });
     }
-
-    // Цвет линии рассчитываем по фазе (один цвет на всю glow-линию, плавно переливается)
     const t = (glowPulse * 0.2) % 1;
     const hue = t * 360;
     const rgb = hsvToRgb(hue, 0.8, 1.0);
     const color = (rgb.r << 16) | (rgb.g << 8) | rgb.b;
-
     bodyGlowGraphics.lineStyle({
       width: glowWidth,
       color: color,
@@ -312,8 +388,6 @@ window.addEventListener("DOMContentLoaded", async () => {
       cap: PIXI.LINE_CAP.ROUND,
       join: PIXI.LINE_JOIN.ROUND,
     });
-
-    // Рисуем единую плавную линию вдоль всей змейки
     if (points.length > 2) {
       bodyGlowGraphics.moveTo(points[0].x, points[0].y);
       for (let i = 1; i < points.length - 1; i++) {
@@ -321,7 +395,6 @@ window.addEventListener("DOMContentLoaded", async () => {
         const yc = (points[i].y + points[i + 1].y) / 2;
         bodyGlowGraphics.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
       }
-      // Последний сегмент
       bodyGlowGraphics.quadraticCurveTo(
         points[points.length - 1].x,
         points[points.length - 1].y,
@@ -336,24 +409,26 @@ window.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // Плавное масштабирование камеры
   function updateCamera(delta) {
-    // Исправлено: корректная формула для плавного уменьшения масштаба при росте змейки
     const minScale = uiManager.isMobile ? GAME_CONSTANTS.MIN_SCALE.mobile : GAME_CONSTANTS.MIN_SCALE.desktop;
     const maxScale = uiManager.isMobile ? GAME_CONSTANTS.MAX_SCALE.mobile : GAME_CONSTANTS.MAX_SCALE.desktop;
-    // t = 0 (маленькая змейка) -> minScale, t = 1 (большая) -> maxScale
     const t = Math.min(Math.max(Math.log(snakeMass + 1) / Math.log(50000), 0), 1);
     const targetScale = minScale - (minScale - maxScale) * t;
-
     uiManager.currentScale += (targetScale - uiManager.currentScale) * GAME_CONSTANTS.SCALE_SPEED * delta * 0.5;
     const targetX = -snakeHead.x * uiManager.currentScale + app.screen.width / 2;
     const targetY = -snakeHead.y * uiManager.currentScale + app.screen.height / 2;
     gameWorld.x = targetX;
     gameWorld.y = targetY;
     gameWorld.scale.set(uiManager.currentScale);
+    console.log("Камера обновлена:", {
+      gameWorldX: gameWorld.x,
+      gameWorldY: gameWorld.y,
+      scale: uiManager.currentScale,
+      snakeHeadX: snakeHead.x,
+      snakeHeadY: snakeHead.y
+    });
   }
 
-  // Управление движением с динамическими параметрами поворота
   let currentAngle = -Math.PI / 2;
   app.stage.on("pointermove", (event) => {
     if (!uiManager.isMobile) {
@@ -366,7 +441,6 @@ window.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // Анимация поедания еды
   function animateFoodConsumption(food, callback) {
     const duration = 0.03;
     let time = 0;
@@ -374,27 +448,22 @@ window.addEventListener("DOMContentLoaded", async () => {
     const initialY = food.y;
     const initialScale = food.scale.x || 1;
     const initialAlpha = food.alpha || 1;
-
     food.isConsumed = true;
     foodManager.foodItems = foodManager.foodItems.filter(f => f !== food);
-
     const headAngle = snakeHead.rotation - Math.PI / 2;
     const faceOffset = snakeHead.height * 0.5;
     const faceX = snakeHead.x + Math.cos(headAngle) * faceOffset;
     const faceY = snakeHead.y + Math.sin(headAngle) * faceOffset;
-
     const animate = (delta) => {
       try {
         time += delta / 60;
         const progress = Math.min(time / duration, 1);
-
         food.x = initialX + (faceX - initialX) * progress;
         food.y = initialY + (faceY - initialY) * progress;
         food.scale.set(initialScale * (1 - progress));
         food.alpha = initialAlpha * (1 - progress);
-
         if (progress >= 1) {
-          console.log(`Food consumed: ID ${food.id}, Type: ${food.type || 'unknown'}, Points: ${food.points}`);
+          console.log(`Еда съедена: ID ${food.id}, Тип: ${food.type || 'unknown'}, Очки: ${food.points}`);
           if (gameWorld.children.includes(food)) {
             gameWorld.removeChild(food);
           }
@@ -403,7 +472,7 @@ window.addEventListener("DOMContentLoaded", async () => {
           callback();
         }
       } catch (error) {
-        console.error(`Error during food animation: ${error}`);
+        console.error(`Ошибка анимации еды: ${error}`);
         if (gameWorld.children.includes(food)) {
           gameWorld.removeChild(food);
         }
@@ -412,176 +481,73 @@ window.addEventListener("DOMContentLoaded", async () => {
         callback();
       }
     };
+    app.ticker.add(animate);
+  }
+
+  function playerDie() {
+    foodManager.createDebrisFromSnake(snakeMass, snakeSegments);
+    foodManager.createTonFromSnake(snakeMass, snakeSegments);
+
+    const duration = 0.5;
+    let time = 0;
+    const initialAlpha = snakeHead.alpha || 1;
+    const initialScale = snakeHead.scale.x || 1;
+
+    const animate = (delta) => {
+      try {
+        time += delta / 60;
+        const progress = Math.min(time / duration, 1);
+
+        snakeHead.alpha = initialAlpha * (1 - progress);
+        snakeBodyGraphics.alpha = initialAlpha * (1 - progress);
+        bodyGlowGraphics.alpha = initialAlpha * (1 - progress);
+
+        snakeHead.scale.set(initialScale * (1 - progress * 0.5));
+        snakeBodyGraphics.scale.set(initialScale * (1 - progress * 0.5));
+        bodyGlowGraphics.scale.set(initialScale * (1 - progress * 0.5));
+
+        if (progress >= 1) {
+          gameWorld.removeChild(snakeHead);
+          gameWorld.removeChild(snakeBodyGraphics);
+          gameWorld.removeChild(bodyGlowGraphics);
+          snakeHead.destroy();
+          snakeBodyGraphics.destroy();
+          bodyGlowGraphics.destroy();
+          app.ticker.remove(animate);
+
+          alert("Игра окончена! Вы столкнулись с другой змеёй.");
+          window.location.reload();
+        }
+      } catch (error) {
+        console.error(`Ошибка в анимации смерти игрока: ${error}`);
+        gameWorld.removeChild(snakeHead);
+        gameWorld.removeChild(snakeBodyGraphics);
+        gameWorld.removeChild(bodyGlowGraphics);
+        snakeHead.destroy();
+        snakeBodyGraphics.destroy();
+        bodyGlowGraphics.destroy();
+        app.ticker.remove(animate);
+        alert("Игра окончена! Произошла ошибка.");
+        window.location.reload();
+      }
+    };
 
     app.ticker.add(animate);
   }
 
-  // Основной игровой цикл
-  app.ticker.add((delta) => {
-    // Проверка начала буста
-    if (uiManager.isBoosting && !wasBoosting && snakeMass > 11 && targetMass > 11) {
-      const initialMassLoss = Math.min(snakeMass * 0.01, 5);
-      targetMass = Math.max(10, targetMass - initialMassLoss);
-      snakeMass = Math.max(10, snakeMass - initialMassLoss);
-      // УБРАН ПРОФИТ - обновляем только токены
-      uiManager.updateTokens(snakeMass, false);
-    }
-
-    wasBoosting = uiManager.isBoosting;
-
-    // Интерполяция массы
-    if (Math.abs(targetMass - snakeMass) > 0.01) {
-      const lerpFactor = snakeMass > 100 ? 0.8 : 0.2;
-      snakeMass += (targetMass - snakeMass) * lerpFactor * delta;
-      // УБРАН ПРОФИТ - обновляем только токены
-      uiManager.updateTokens(snakeMass, false);
-    }
-
-    const canBoost = snakeMass > 11 && targetMass > 11 && uiManager.isBoosting;
-
-    if (canBoost) {
-      const massLost = GAME_CONSTANTS.BOOST_MASS_LOSS * delta;
-      targetMass = Math.max(10, targetMass - massLost);
-      if (targetMass <= 11) {
-        uiManager.isBoosting = false;
-      }
-    }
-
-    // Получаем динамические параметры поворота
-    const rotationParams = getRotationParams(snakeMass);
-    currentAngle = lerpAngle(currentAngle, uiManager.getTargetAngle(), rotationParams.rotationSpeed * delta);
-    const speed = calculateSpeed(snakeMass, canBoost);
-
-    let newX = snakeHead.x + Math.cos(currentAngle) * speed * delta;
-    let newY = snakeHead.y + Math.sin(currentAngle) * speed * delta;
-    
-    const dx = newX - GAME_CONSTANTS.WORLD_CENTER.x;
-    const dy = newY - GAME_CONSTANTS.WORLD_CENTER.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    
-    if (distance > GAME_CONSTANTS.WORLD_RADIUS) {
-      const angle = Math.atan2(dy, dx);
-      newX = GAME_CONSTANTS.WORLD_CENTER.x + GAME_CONSTANTS.WORLD_RADIUS * Math.cos(angle);
-      newY = GAME_CONSTANTS.WORLD_CENTER.y + GAME_CONSTANTS.WORLD_RADIUS * Math.sin(angle);
-    }
-    
-    snakeHead.x = newX;
-    snakeHead.y = newY;
-    snakeHead.rotation = currentAngle + Math.PI / 2;
-
-    const { width } = updateSnakeSize();
-    const { segmentDistance } = updateSnakeSegments(delta, canBoost);
-
-    // Проверка столкновений с едой
-    foodManager.foodItems = foodManager.foodItems.filter(food => {
-      if (!food || food.isConsumed) {
-        return false;
-      }
-
-      const headAngle = snakeHead.rotation - Math.PI / 2;
-      const faceOffset = snakeHead.height * 0.5;
-      const faceX = snakeHead.x + Math.cos(headAngle) * faceOffset;
-      const faceY = snakeHead.y + Math.sin(headAngle) * faceOffset;
-
-      const foodSize = food.size || 10;
-      const distanceToHead = Math.hypot(food.x - faceX, food.y - faceY);
-      const collisionThreshold = (snakeHead.width / 2) + (foodSize / 2);
-
-      if (distanceToHead < collisionThreshold || distanceToHead < snakeHead.width) {
-        const points = food.type === "boost" ? (snakeMass > 100 ? 0.05 : 0.1) : food.points;
-        targetMass += points;
-        // УБРАН ПРОФИТ - обновляем только токены без профита
-        uiManager.updateTokens(snakeMass + points, false);
-        animateFoodConsumption(food, () => {
-          if (food.type !== "boost") {
-            foodManager.createFood();
-          }
-        });
-        return false;
-      }
-
-      return true;
-    });
-
-    if (growthLerp < 1) {
-      growthLerp += delta * 0.1;
-      if (growthLerp > 1) growthLerp = 1;
-    }
-
-    drawSnakeBody();
-    
-    // ОПТИМИЗИРОВАННОЕ обновление свечения - не каждый кадр
-    glowUpdateCounter++;
-    if (glowUpdateCounter >= GAME_CONSTANTS.GLOW_OPTIMIZATION.GLOW_UPDATE_INTERVAL) {
-      drawOptimizedSnakeGlow(canBoost, width);
-      glowUpdateCounter = 0;
-    }
-
-    // Спавн орбов при бусте
-    if (canBoost && snakeSegments.length > 5) {
-      orbSpawnTimer += delta / 60;
-      const orbInterval = snakeMass > 100 ? 0.06 : GAME_CONSTANTS.ORB_SPAWN_INTERVAL.small;
-      if (orbSpawnTimer >= orbInterval) {
-        const tailIndex = Math.min(snakeSegments.length - 1, Math.floor(snakeSegments.length * 0.8));
-        const tailPos = snakeSegments[tailIndex];
-        
-        const orb = new PIXI.Container();
-        orb.type = "boost";
-        orb.points = snakeMass > 100 ? 0.05 : 0.1;
-        orb.size = 10;
-        orb.zIndex = -2;
-        orb.id = Math.random().toString(36).substr(2, 9);
-        orb.attractionTime = 0;
-        
-        const color = foodManager.colors[Math.floor(Math.random() * foodManager.colors.length)];
-        const gradientTexture = foodManager.createGradientTexture(color, orb.size);
-        const orbCircle = new PIXI.Graphics();
-        orbCircle.beginTextureFill({ texture: gradientTexture });
-        orbCircle.drawCircle(0, 0, orb.size / 2);
-        orbCircle.endFill();
-        orb.addChild(orbCircle);
-        
-        orb.x = tailPos.x + (Math.random() - 0.5) * 10;
-        orb.y = tailPos.y + (Math.random() - 0.5) * 10;
-        
-        gameWorld.addChild(orb);
-        foodManager.foodItems.push(orb);
-        orbSpawnTimer = 0;
-      }
-    } else {
-      orbSpawnTimer = 0;
-    }
-
-    foodManager.update(delta, snakeHead);
-    updateCamera(delta);
-    uiManager.updateMinimap();
-  });
-
-  // Функция плавного поворота с динамическим ограничением
-  function lerpAngle(start, end, t) {
+  function slitherLerpAngle(currentAngle, targetAngle, mass, delta) {
+    const config = GAME_CONSTANTS.ROTATION_FORMULA;
+    const rotationSpeed = calculateRotationSpeed(mass);
     const twoPi = 2 * Math.PI;
-    start = ((start % twoPi) + twoPi) % twoPi;
-    end = ((end % twoPi) + twoPi) % twoPi;
-    let diff = end - start;
+    currentAngle = ((currentAngle % twoPi) + twoPi) % twoPi;
+    targetAngle = ((targetAngle % twoPi) + twoPi) % twoPi;
+    let diff = targetAngle - currentAngle;
     if (diff > Math.PI) diff -= twoPi;
     if (diff < -Math.PI) diff += twoPi;
-    
-    // Получаем максимальную угловую скорость для текущей массы
-    const rotationParams = getRotationParams(snakeMass);
-    const maxChange = rotationParams.maxAngularSpeed * t;
-    diff = Math.max(-maxChange, Math.min(maxChange, diff));
-    return ((start + diff) % twoPi + twoPi) % twoPi;
-  }
-
-  function getRotationConfigByMass(mass) {
-    const configs = GAME_CONSTANTS.ROTATION_CONFIG;
-    for (const key in configs) {
-      const { massRange } = configs[key];
-      if (mass >= massRange[0] && mass < massRange[1]) {
-        return configs[key];
-      }
-    }
-    return configs.mega; // fallback
+    const maxRotationThisFrame = rotationSpeed * delta;
+    diff = Math.max(-maxRotationThisFrame, Math.min(maxRotationThisFrame, diff));
+    const lerpedDiff = diff * config.SMOOTHNESS;
+    return ((currentAngle + lerpedDiff) % twoPi + twoPi) % twoPi;
   }
 
   function getGlowWidthByMass(mass) {
@@ -594,25 +560,169 @@ window.addEventListener("DOMContentLoaded", async () => {
     return arr[arr.length - 1].width;
   }
 
-  function updateSnakeMovement(snake) {
-    const config = getRotationConfigByMass(snake.mass);
-    snake.rotationSpeed = config.rotationSpeed;
-    snake.maxAngularSpeed = config.maxAngularSpeed;
-    snake.speed = config.speed;
-  }
-
-  function drawSnakeGlow(snake) {
-    let glowWidth = getGlowWidthByMass(snake.mass);
-    let baseAlpha = 0.5;
-    let updateInterval = GAME_CONSTANTS.GLOW_OPTIMIZATION.GLOW_UPDATE_INTERVAL;
-
-    // Оптимизация для сверхбольших змей
-    if (snake.mass >= GAME_CONSTANTS.GLOW_OPTIMIZATION.ultraLargeGlow.massThreshold) {
-      glowWidth = GAME_CONSTANTS.GLOW_OPTIMIZATION.ultraLargeGlow.width;
-      baseAlpha = GAME_CONSTANTS.GLOW_OPTIMIZATION.ultraLargeGlow.baseAlpha;
-      updateInterval = GAME_CONSTANTS.GLOW_OPTIMIZATION.ultraLargeGlow.updateInterval;
+  app.ticker.add((delta) => {
+    if (uiManager.isBoosting && !wasBoosting && snakeMass > 11 && targetMass > 11) {
+      const initialMassLoss = Math.min(snakeMass * 0.01, 5);
+      targetMass = Math.max(10, targetMass - initialMassLoss);
+      snakeMass = targetMass;
+      uiManager.updateTokens(snakeMass, false);
     }
+    wasBoosting = uiManager.isBoosting;
+    const canBoost = snakeMass > 11 && targetMass > 11 && uiManager.isBoosting;
+    if (Math.abs(targetMass - snakeMass) > 0.01) {
+      if (canBoost) {
+        snakeMass = targetMass;
+      } else {
+        const lerpFactor = snakeMass > 100 ? 0.8 : 0.2;
+        snakeMass += (targetMass - snakeMass) * lerpFactor * delta;
+      }
+      uiManager.updateTokens(snakeMass, false);
+    }
+    if (canBoost) {
+      const massLost = GAME_CONSTANTS.BOOST_MASS_LOSS * delta;
+      const newTargetMass = Math.max(10, targetMass - massLost);
+      targetMass = newTargetMass;
+      snakeMass = newTargetMass;
+      if (targetMass <= 11) {
+        uiManager.isBoosting = false;
+      }
+    }
+    currentAngle = slitherLerpAngle(currentAngle, uiManager.getTargetAngle(), snakeMass, delta);
+    const speed = calculateSpeed(snakeMass, canBoost);
+    let newX = snakeHead.x + Math.cos(currentAngle) * speed * delta;
+    let newY = snakeHead.y + Math.sin(currentAngle) * speed * delta;
+    const dx = newX - GAME_CONSTANTS.WORLD_CENTER.x;
+    const dy = newY - GAME_CONSTANTS.WORLD_CENTER.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    if (distance > GAME_CONSTANTS.WORLD_RADIUS) {
+      const angle = Math.atan2(dy, dx);
+      newX = GAME_CONSTANTS.WORLD_CENTER.x + GAME_CONSTANTS.WORLD_RADIUS * Math.cos(angle);
+      newY = GAME_CONSTANTS.WORLD_CENTER.y + GAME_CONSTANTS.WORLD_RADIUS * Math.sin(angle);
+    }
+    snakeHead.x = newX;
+    snakeHead.y = newY;
+    snakeHead.rotation = currentAngle + Math.PI / 2;
+    console.log("Позиция змейки обновлена:", { x: snakeHead.x, y: snakeHead.y, rotation: snakeHead.rotation });
 
-    // ...draw glow using glowWidth, baseAlpha, updateInterval...
+    const { width } = updateSnakeSize();
+    const { segmentDistance } = updateSnakeSegments(delta, canBoost);
+    foodManager.foodItems = foodManager.foodItems.filter(food => {
+      if (!food || food.isConsumed) {
+        return false;
+      }
+      const headAngle = snakeHead.rotation - Math.PI / 2;
+      const faceOffset = snakeHead.height * 0.5;
+      const faceX = snakeHead.x + Math.cos(headAngle) * faceOffset;
+      const faceY = snakeHead.y + Math.sin(headAngle) * faceOffset;
+      const foodSize = food.size || 10;
+      const distanceToHead = Math.hypot(food.x - faceX, food.y - faceY);
+      const collisionThreshold = (snakeHead.width / 2) + (foodSize / 2);
+      if (distanceToHead < collisionThreshold || distanceToHead < snakeHead.width) {
+        if (food.type === "ton") {
+          uiManager.addTon(food.points);
+        } else {
+          const points = food.type === "boost" ? (snakeMass > 100 ? 0.05 : 0.1) : food.points;
+          targetMass += points;
+          uiManager.updateTokens(snakeMass + points, false);
+        }
+        animateFoodConsumption(food, () => {
+          if (food.type !== "boost" && food.type !== "ton") {
+            foodManager.createFood();
+          }
+        });
+        return false;
+      }
+      return true;
+    });
+    if (growthLerp < 1) {
+      growthLerp += delta * 0.1;
+      if (growthLerp > 1) growthLerp = 1;
+    }
+    drawSnakeBody();
+    glowUpdateCounter++;
+    if (glowUpdateCounter >= GAME_CONSTANTS.GLOW_OPTIMIZATION.GLOW_UPDATE_INTERVAL) {
+      drawOptimizedSnakeGlow(canBoost, width);
+      glowUpdateCounter = 0;
+    }
+    if (canBoost && snakeSegments.length > 5) {
+      orbSpawnTimer += delta / 60;
+      const orbInterval = snakeMass > 100 ? 0.06 : GAME_CONSTANTS.ORB_SPAWN_INTERVAL.small;
+      if (orbSpawnTimer >= orbInterval) {
+        const tailIndex = Math.min(snakeSegments.length - 1, Math.floor(snakeSegments.length * 0.8));
+        const tailPos = snakeSegments[tailIndex];
+        const orb = new PIXI.Container();
+        orb.type = "boost";
+        orb.points = snakeMass > 100 ? 0.05 : 0.1;
+        orb.size = 10;
+        orb.zIndex = -2;
+        orb.id = Math.random().toString(36).substr(2, 9);
+        orb.attractionTime = 0;
+        const color = foodManager.colors[Math.floor(Math.random() * foodManager.colors.length)];
+        const gradientTexture = foodManager.createGradientTexture(color, orb.size);
+        const orbCircle = new PIXI.Graphics();
+        orbCircle.beginTextureFill({ texture: gradientTexture });
+        orbCircle.drawCircle(0, 0, orb.size / 2);
+        orbCircle.endFill();
+        orb.addChild(orbCircle);
+        if (foodManager.tokenFoodTexture) {
+          const logo = new PIXI.Sprite(foodManager.tokenFoodTexture);
+          logo.anchor.set(0.5);
+          logo.width = orb.size * 0.8;
+          logo.height = orb.size * 0.8;
+          orb.addChild(logo);
+        }
+        orb.x = tailPos.x + (Math.random() - 0.5) * 10;
+        orb.y = tailPos.y + (Math.random() - 0.5) * 10;
+        gameWorld.addChild(orb);
+        foodManager.foodItems.push(orb);
+        orbSpawnTimer = 0;
+      }
+    } else {
+      orbSpawnTimer = 0;
+    }
+    foodManager.updateSnakes([{ head: snakeHead, alive: true }, ...bots.filter(bot => bot.alive)]);
+    bots.forEach((bot, index) => {
+      if (bot.alive) {
+        bot.update(delta, foodManager, bots, snakeSegments);
+      }
+    });
+    bots = bots.filter(bot => bot.alive);
+    while (bots.length < GAME_CONSTANTS.BOT_COUNT) {
+      createBot();
+    }
+    if (initialSafeFrames > 0) {
+      initialSafeFrames--;
+      console.log(`Пропуск проверки столкновений, осталось кадров: ${initialSafeFrames}`);
+    } else {
+      let playerDead = false;
+      for (const bot of bots) {
+        for (let i = 0; i < bot.segments.length; i++) {
+          const seg = bot.segments[i];
+          const dist = Math.hypot(snakeHead.x - seg.x, snakeHead.y - seg.y);
+          if (dist < snakeHead.width / 2 + seg.width / 2) {
+            console.log(`Обнаружено столкновение с ботом на сегменте ${i}, позиция (${seg.x}, ${seg.y})`);
+            playerDead = true;
+            break;
+          }
+        }
+        if (playerDead) break;
+      }
+      if (playerDead) {
+        playerDie();
+        return;
+      }
+    }
+    foodManager.update(delta, snakeHead);
+    updateCamera(delta);
+    uiManager.updateMinimap();
+  });
+
+  function calculateSpeed(mass, isBoosting) {
+    const baseSpeed = GAME_CONSTANTS.BASE_SPEED;
+    const boostSpeed = GAME_CONSTANTS.BOOST_SPEED;
+    const config = GAME_CONSTANTS.SPEED_FORMULA;
+    let speedMultiplier = 1.0 - (mass * config.MASS_SLOWDOWN_FACTOR);
+    speedMultiplier = Math.max(config.MIN_SPEED_MULTIPLIER, Math.min(config.MAX_SPEED_MULTIPLIER, speedMultiplier));
+    return isBoosting ? boostSpeed * speedMultiplier : baseSpeed * speedMultiplier;
   }
 });

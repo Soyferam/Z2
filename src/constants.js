@@ -1,19 +1,69 @@
-// Оптимизированные константы для src/constants.js
 export const GAME_CONSTANTS = {
+  // === БОТЫ ===
+  BOT_COUNT: 20,                          // Количество ботов на карте
+  BOT_COLORS: [
+    0xFF3333, // Красный
+    0x33FF33, // Зелёный
+    0xFFFF33, // Жёлтый
+    0xFF33FF, // Фиолетовый
+    0x33FFFF, // Циан
+    0xFF9933, // Оранжевый
+    0x9933FF, // Пурпурный
+  ],                                      // Цвета для ботов
+
+  // === ПАРАМЕТРЫ КРИПТОВАЛЮТЫ (TON) ===
+  TON_DROP: {
+    MIN_TON_PER_SNAKE: 1,               // Минимальное количество TON за змею
+    MAX_TON_PER_SNAKE: 20,              // Максимальное количество TON за змею
+    TON_PER_DROP: 0.5,                  // Количество TON в одном куске еды
+    TON_SIZE: 12,                       // Размер TON-еды
+    TON_COLOR: { stops: 0.6, inner: 0x33CCFF, outer: 0x0099CC }, // Цвет TON
+  },
+
   // === РАЗМЕРЫ МИРА ===
   WORLD_RADIUS: 2500,                    // Радиус игрового мира
   WORLD_CENTER: { x: 2500, y: 2500 },    // Центр игрового мира
   
-  // === ПАРАМЕТРЫ СКОРОСТИ ===
-  BASE_SPEED: 5.8,                       // Базовая скорость движения змейки
-  BOOST_SPEED: 8.5,                      // Скорость при ускорении (бусте)
+  // === ПАРАМЕТРЫ СКОРОСТИ И ПОВОРОТА (УПРОЩЕННЫЕ КАК В SLITHER.IO) ===
+  BASE_SPEED: 3.0,                       // Базовая скорость движения змейки
+  BOOST_SPEED: 6.0,                      // Скорость при ускорении (бусте)
   BOOST_MASS_LOSS: 0.2,                  // Потеря массы в секунду при бусте
+  
+  // Единая формула поворота как в Slither.io
+  ROTATION_FORMULA: {
+    // Базовая скорость поворота для маленьких змей
+    BASE_ROTATION_SPEED: 0.02,
+    
+    // Коэффициент замедления поворота с ростом массы
+    MASS_SLOWDOWN_FACTOR: 0.00008,
+    
+    // Минимальная скорость поворота (чтобы большие змеи могли поворачивать)
+    MIN_ROTATION_SPEED: 0.6,
+    
+    // Максимальная скорость поворота
+    MAX_ROTATION_SPEED: 0.08,
+    
+    // Плавность поворота (lerp factor)
+    SMOOTHNESS: 0.12
+  },
+  
+  // Единая формула скорости как в Slither.io  
+  SPEED_FORMULA: {
+    // Коэффициент замедления от массы
+    MASS_SLOWDOWN_FACTOR: 0.00012,
+    
+    // Минимальная скорость
+    MIN_SPEED_MULTIPLIER: 0.3,
+    
+    // Максимальная скорость  
+    MAX_SPEED_MULTIPLIER: 1.0
+  },
   
   // === БАЗОВЫЕ ПАРАМЕТРЫ ЗМЕЙКИ ===
   BASE_MASS: 10,                         // Базовая масса змейки при старте
   MASS_SCALE: 1000,                      // Масштаб для расчетов массы
   BASE_WIDTH: 15,                        // Базовая ширина головы змейки
-  BODY_COLOR: 0x1AC9FF,                  // Цвет тела змейки
+  BODY_COLOR: 0x1AC9FF,                  // Цвет тела змейки игрока
   
   // === ПАРАМЕТРЫ ЕДЫ ===
   FOOD_COUNT: 1000,                      // Количество еды на карте
@@ -33,154 +83,71 @@ export const GAME_CONSTANTS = {
   MAX_SCALE: { mobile: 0.8, desktop: 1.0 },   // Максимальный зум камеры
   SCALE_SPEED: 0.03,                          // Скорость изменения зума
   
-  // === УЛУЧШЕННЫЕ ПАРАМЕТРЫ ПОВОРОТА ПО РАЗМЕРАМ ===
-  ROTATION_CONFIG: {
-    // Змейки размером 10-100 (начальные)
-    small: {
-      massRange: [10, 100],                // Диапазон массы
-      rotationSpeed: 0.35,                 // Скорость поворота (высокая маневренность)
-      maxAngularSpeed: 0.35,               // Максимальная угловая скорость
-      speed: 5.8,
-      description: "Маленькие змейки - высокая маневренность"
-    },
-    // Змейки размером 100-500 (средние)
-    medium: {
-      massRange: [100, 500],
-      rotationSpeed: 0.25,                 // Средняя скорость поворота
-      maxAngularSpeed: 0.35,
-      speed: 5.5,
-      description: "Средние змейки - умеренная маневренность"
-    },
-    // Змейки размером 500-1000 (большие)
-    large: {
-      massRange: [500, 1000],
-      rotationSpeed: 0.2,                 // Пониженная скорость поворота
-      maxAngularSpeed: 0.25,
-      speed: 5.2,
-      description: "Большие змейки - пониженная маневренность"
-    },
-    // Змейки размером 1000-5000 (очень большие)
-    xlarge: {
-      massRange: [1000, 5000],
-      rotationSpeed: 0.15,
-      maxAngularSpeed: 0.18,
-      speed: 4.8,
-      description: "Очень большие змейки"
-    },
-    // Змейки размером 5000-10000 (огромные)
-    xxlarge: {
-      massRange: [5000, 10000],
-      rotationSpeed: 0.12,
-      maxAngularSpeed: 0.15,
-      speed: 4.3,
-      description: "Огромные змейки"
-    },
-    // Змейки размером 10000-20000 (гигантские)
-    xxxlarge: {
-      massRange: [10000, 20000],
-      rotationSpeed: 0.09,
-      maxAngularSpeed: 0.12,
-      speed: 3.8,
-      description: "Гигантские змейки"
-    },
-    // Змейки размером 20000-50000 (сверхгигантские)
-    ultra: {
-      massRange: [20000, 50000],
-      rotationSpeed: 0.06,
-      maxAngularSpeed: 0.09,
-      speed: 3.2,
-      description: "Сверхгигантские змейки"
-    },
-    // Змейки размером 50000+ (мега змейки)
-    mega: {
-      massRange: [50000, Infinity],
-      rotationSpeed: 0.03,
-      maxAngularSpeed: 0.05,
-      speed: 2.5,
-      description: "Мега змейки"
-    }
-  },
-  
   // === ПАРАМЕТРЫ РОСТА ЗМЕЙКИ ===
-  HISTORY_LENGTH: 150,                     // Максимальная длина истории позиций
+  HISTORY_LENGTH: 50,                     // Максимальная длина истории позиций
   
-  // Интервалы спавна орбов при бусте
   ORB_SPAWN_INTERVAL: { 
-    small: 0.08,                          // 12.5 орбов в секунду для маленьких
-    large: 0.05                           // 20 орбов в секунду для больших
+    small: 0.08,
+    large: 0.05
   },
   
-  // === ДЕТАЛЬНЫЕ ПАРАМЕТРЫ РОСТА ===
   SNAKE_GROWTH: {
-    LENGTH_BASE: 10,                      // Базовая длина змейки
-    LENGTH_MULTIPLIER: 6,                 // Множитель роста длины
-    WIDTH_BASE: 15,                       // Базовая ширина сегментов
-    WIDTH_MULTIPLIER: 0.6,                // Множитель роста ширины
-    SEGMENT_SPACING: 0.7,                 // Расстояние между сегментами (множитель ширины)
-    TAIL_TAPER: 0.3,                      // Минимальная толщина хвоста (30% от основной)
-  },
-  
-  // === ПАРАМЕТРЫ ЗАМЕДЛЕНИЯ ОТ РАЗМЕРА ===
-  SPEED_REDUCTION: {
-    BASE_FACTOR: 0.08,                    // Базовый фактор замедления
-    MIN_SPEED: 0.4,                       // Минимальная скорость (40% от базовой)
+    LENGTH_BASE: 10,
+    LENGTH_MULTIPLIER: 6,
+    WIDTH_BASE: 15,
+    WIDTH_MULTIPLIER: 0.6,
+    SEGMENT_SPACING: 0.7,
+    TAIL_TAPER: 0.3,
   },
 
-  // === ОПТИМИЗИРОВАННЫЕ ПАРАМЕТРЫ СВЕЧЕНИЯ ===
   GLOW_OPTIMIZATION: {
-    // Максимальное количество сегментов для расчета свечения
-    MAX_GLOW_SEGMENTS: 50,                // Ограничение сегментов для производительности
-    
-    // Интервал обновления свечения (в кадрах)
-    GLOW_UPDATE_INTERVAL: 0.1,              // Обновлять свечение каждые 2 кадра
-    
-    // Упрощение свечения для больших змей
+    MAX_GLOW_SEGMENTS: 50,
+    GLOW_UPDATE_INTERVAL: 0.1,
     LARGE_SNAKE_SIMPLIFICATION: {
-      threshold: 200,                     // Порог массы для упрощения
-      segmentSkip: 3,                     // Пропускать каждые N сегментов
-      reducedAlpha: 0.6,                  // Уменьшенная прозрачность
+      threshold: 200,
+      segmentSkip: 3,
+      reducedAlpha: 0.6,
     },
-    
-    // Новые параметры ширины свечения для больших змей
     glowWidthByMass: [
-      { range: [10, 1000], width: 2.0 },
-      { range: [1000, 5000], width: 1.5 },    // Исправлено: было 0.5, стало 1.5
+      { range: [10, 1000], width: 1.4 },
+      { range: [1000, 5000], width: 1.3 },
       { range: [5000, 10000], width: 1.2 },
-      { range: [10000, 20000], width: 1.0 },
-      { range: [20000, 50000], width: 0.8 },
+      { range: [10000, 20000], width: 1.2 },
+      { range: [20000, 50000], width: 1.2 },
       { range: [50000, Infinity], width: 0.6 }
     ],
-    
-    // Оптимизация для сверхбольших змей
     ultraLargeGlow: {
       massThreshold: 40000,
-      updateInterval: 0.3, // реже обновлять
-      baseAlpha: 0.3,      // прозрачность ниже
-      width: 0.6           // ширина свечения минимальная
+      updateInterval: 0.3,
+      baseAlpha: 0.3,
+      width: 0.6
     },
-    
-    // Параметры свечения по размерам
     small: {
       massRange: [10, 100],
-      glowWidth: 1.5,                     // Множитель ширины свечения
-      pulseSpeed: 0.03,                   // Скорость пульсации
-      baseAlpha: 0.7,                     // Базовая прозрачность
-      colorCount: 4,                      // Количество цветов в палитре
+      glowWidth: 1.0,
+      pulseSpeed: 0.03,
+      baseAlpha: 0.7,
+      colorCount: 4,
     },
     medium: {
       massRange: [100, 500],
-      glowWidth: 1.8,
+      glowWidth: 1.2,
       pulseSpeed: 0.04,
       baseAlpha: 0.65,
       colorCount: 5,
     },
     large: {
       massRange: [500, 1000],
-      glowWidth: 1.5,                     // Фиксированная ширина для больших
+      glowWidth: 1.5,
       pulseSpeed: 0.05,
-      baseAlpha: 0.5,                     // Пониженная прозрачность
+      baseAlpha: 0.5,
       colorCount: 6,
-      useSimplification: true,            // Включить упрощение
+      useSimplification: true,
     }
-  }
+  },
+
+  DEBRIS_COUNT_PER_MASS: 0.1,
+  DEBRIS_MIN_SIZE: 5,
+  DEBRIS_MAX_SIZE: 20,
+  DEBRIS_POINTS_PER_MASS: 0.5,
 };
