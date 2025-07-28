@@ -37,6 +37,7 @@ export class UIManager {
     this.initDevUI();
     this.handleResize();
     window.addEventListener("resize", () => this.handleResize());
+    window.addEventListener("orientationchange", () => this.updateMinimapPosition()); // Добавляем обработчик ориентации
 
     this.updateBalanceDisplay();
   }
@@ -68,7 +69,7 @@ export class UIManager {
 
   initMinimap() {
     this.minimapCanvas = document.getElementById("minimap");
-    
+
     if (!(this.minimapCanvas instanceof HTMLCanvasElement)) {
       console.warn("Элемент #minimap не является canvas, создаём новый");
       if (this.minimapCanvas) {
@@ -80,7 +81,7 @@ export class UIManager {
       document.body.appendChild(this.minimapCanvas);
     }
 
-    this.minimapCanvas.width = 150;
+    this.minimapCanvas.width = 150; // Внутреннее разрешение
     this.minimapCanvas.height = 150;
 
     try {
@@ -94,13 +95,18 @@ export class UIManager {
       return;
     }
 
+    // Устанавливаем только минимальные стили
     this.minimapCanvas.style.position = "fixed";
-    this.minimapCanvas.style.top = this.isMobile ? "2vh" : "4vh";
-    this.minimapCanvas.style.left = this.isMobile ? "2vw" : "4vw";
-    this.minimapCanvas.style.width = this.isMobile ? "100px" : "150px";
-    this.minimapCanvas.style.height = this.isMobile ? "100px" : "150px";
     this.minimapCanvas.style.zIndex = "100";
+
+    this.updateMinimapPosition();
+
     console.log("Миникарта инициализирована");
+  }
+
+  updateMinimapPosition() {
+    if (!this.minimapCanvas) return;
+    console.log(`Обновление миникарты: полагаемся на CSS, ширина экрана=${window.innerWidth}, isMobile=${this.isMobile}`);
   }
 
   updateMinimap() {
@@ -132,139 +138,136 @@ export class UIManager {
   }
 
   initJoystick() {
-  if (this.isMobile) {
-    if (this.joystick) {
-      this.joystick.destroy();
-      this.joystick = null;
-    }
-    this.joystickContainer = document.getElementById("joystick");
-    if (!this.joystickContainer) {
-      console.warn("Контейнер джойстика не найден, создаём новый");
-      this.joystickContainer = document.createElement("div");
-      this.joystickContainer.id = "joystick";
-      document.body.appendChild(this.joystickContainer);
-    }
+    if (this.isMobile) {
+      if (this.joystick) {
+        this.joystick.destroy();
+        this.joystick = null;
+      }
+      this.joystickContainer = document.getElementById("joystick");
+      if (!this.joystickContainer) {
+        console.warn("Контейнер джойстика не найден, создаём новый");
+        this.joystickContainer = document.createElement("div");
+        this.joystickContainer.id = "joystick";
+        document.body.appendChild(this.joystickContainer);
+      }
 
-    // Предотвращаем все стандартные события касания в области джойстика
-    this.joystickContainer.addEventListener("touchstart", (e) => {
-      e.preventDefault(); // Блокируем стандартное поведение
-      e.stopPropagation(); // Предотвращаем передачу события выше
-    }, { passive: false });
+      // Предотвращаем все стандартные события касания в области джойстика
+      this.joystickContainer.addEventListener("touchstart", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }, { passive: false });
 
-    this.joystickContainer.addEventListener("touchmove", (e) => {
-      e.preventDefault(); // Блокируем стандартное поведение
-      e.stopPropagation(); // Предотвращаем передачу события выше
-    }, { passive: false });
+      this.joystickContainer.addEventListener("touchmove", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }, { passive: false });
 
-    this.joystickContainer.addEventListener("touchend", (e) => {
-      e.preventDefault(); // Блокируем стандартное поведение
-      e.stopPropagation(); // Предотвращаем передачу события выше
-    }, { passive: false });
+      this.joystickContainer.addEventListener("touchend", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }, { passive: false });
 
-    try {
-      this.joystick = nipplejs.create({
-        zone: this.joystickContainer,
-        mode: "static",
-        position: { left: "50%", top: "50%" },
-        color: "white",
-        size: 100,
-      });
+      try {
+        this.joystick = nipplejs.create({
+          zone: this.joystickContainer,
+          mode: "static",
+          position: { left: "50%", top: "50%" },
+          color: "white",
+          size: 100,
+          catchDistance: 200, // Увеличиваем радиус захвата касаний
+        });
 
-      this.joystick.on("move", (evt, data) => {
-        if (data.direction) {
-          this.targetAngle = -data.angle.radian;
-          this.targetAngle = ((this.targetAngle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
-          if (this.targetAngle > Math.PI) this.targetAngle -= 2 * Math.PI;
-        }
-      });
+        this.joystick.on("move", (evt, data) => {
+          if (data.direction) {
+            this.targetAngle = -data.angle.radian;
+            this.targetAngle = ((this.targetAngle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+            if (this.targetAngle > Math.PI) this.targetAngle -= 2 * Math.PI;
+          }
+        });
 
-      this.joystick.on("end", () => {
-        // Не меняем угол при отпускании джойстика
-      });
-    } catch (error) {
-      console.error(`Ошибка инициализации джойстика: ${error}`);
-    }
-  } else {
-    if (this.joystick) {
-      this.joystick.destroy();
-      this.joystick = null;
-    }
-    if (this.joystickContainer) {
-      this.joystickContainer.remove();
-      this.joystickContainer = null;
+        this.joystick.on("end", () => {
+          // Не меняем угол при отпускании джойстика
+        });
+      } catch (error) {
+        console.error(`Ошибка инициализации джойстика: ${error}`);
+      }
+    } else {
+      if (this.joystick) {
+        this.joystick.destroy();
+        this.joystick = null;
+      }
+      if (this.joystickContainer) {
+        this.joystickContainer.remove();
+        this.joystickContainer = null;
+      }
     }
   }
-}
 
   initEventListeners() {
-  // Существующие обработчики для кнопок буста
-  if (this.boostButton && this.isMobile) {
-    console.log("Кнопка буста найдена, настройка событий для мобильных");
-    this.boostButton.removeEventListener("touchstart", this.handleTouchStart);
-    this.boostButton.removeEventListener("touchend", this.handleTouchEnd);
+    if (this.boostButton && this.isMobile) {
+      console.log("Кнопка буста найдена, настройка событий для мобильных");
+      this.boostButton.removeEventListener("touchstart", this.handleTouchStart);
+      this.boostButton.removeEventListener("touchend", this.handleTouchEnd);
 
-    this.handleTouchStart = (e) => {
-      e.preventDefault();
-      if (this.tokens > 11) {
-        this.isBoosting = true;
-        console.log("Буст активирован через касание");
-      } else {
-        console.log(`Буст не активирован: недостаточно токенов (${this.tokens})`);
-      }
-    };
-    this.handleTouchEnd = () => {
-      this.isBoosting = false;
-      console.log("Буст деактивирован через окончание касания");
-    };
+      this.handleTouchStart = (e) => {
+        e.preventDefault();
+        if (this.tokens > 11) {
+          this.isBoosting = true;
+          console.log("Буст активирован через касание");
+        } else {
+          console.log(`Буст не активирован: недостаточно токенов (${this.tokens})`);
+        }
+      };
+      this.handleTouchEnd = () => {
+        this.isBoosting = false;
+        console.log("Буст деактивирован через окончание касания");
+      };
 
-    this.boostButton.addEventListener("touchstart", this.handleTouchStart);
-    this.boostButton.addEventListener("touchend", this.handleTouchEnd);
-    this.boostButton.disabled = this.tokens <= 11;
-  } else if (this.boostButton) {
-    console.log("Кнопка буста найдена, но игнорируется на десктопе");
-    this.boostButton.disabled = true;
-  } else {
-    console.warn("Кнопка буста не найдена");
-  }
-
-  // Обработчики для кнопок выхода с использованием Telegram Web App API
-  if (this.exitButton) {
-    this.exitButton.addEventListener("click", () => {
-      if (window.Telegram && window.Telegram.WebApp) {
-        window.Telegram.WebApp.close(); // Закрываем приложение через API
-      } else {
-        alert("Exit: Баланс сохранён.");
-        window.location.reload();
-      }
-    });
-  }
-
-  if (this.quickExitButton) {
-    this.quickExitButton.addEventListener("click", () => {
-      if (window.Telegram && window.Telegram.WebApp) {
-        // Можно добавить логику для штрафа 10% перед закрытием
-        window.Telegram.WebApp.close();
-      } else {
-        alert("Quick Exit: Баланс сохранён с 10% штрафом.");
-        window.location.reload();
-      }
-    });
-  }
-
-  // Предотвращаем свайп вниз
-  document.addEventListener("touchstart", (e) => {
-    this.touchStartY = e.touches[0].clientY;
-  });
-
-  document.addEventListener("touchmove", (e) => {
-    const currentY = e.touches[0].clientY;
-    const deltaY = currentY - this.touchStartY;
-
-    if (deltaY > 0) {
-      e.preventDefault();
+      this.boostButton.addEventListener("touchstart", this.handleTouchStart);
+      this.boostButton.addEventListener("touchend", this.handleTouchEnd);
+      this.boostButton.disabled = this.tokens <= 11;
+    } else if (this.boostButton) {
+      console.log("Кнопка буста найдена, но игнорируется на десктопе");
+      this.boostButton.disabled = true;
+    } else {
+      console.warn("Кнопка буста не найдена");
     }
-  }, { passive: false });
-}
+
+    if (this.exitButton) {
+      this.exitButton.addEventListener("click", () => {
+        if (window.Telegram && window.Telegram.WebApp) {
+          window.Telegram.WebApp.close();
+        } else {
+          alert("Exit: Баланс сохранён.");
+          window.location.reload();
+        }
+      });
+    }
+
+    if (this.quickExitButton) {
+      this.quickExitButton.addEventListener("click", () => {
+        if (window.Telegram && window.Telegram.WebApp) {
+          window.Telegram.WebApp.close();
+        } else {
+          alert("Quick Exit: Баланс сохранён с 10% штрафом.");
+          window.location.reload();
+        }
+      });
+    }
+
+    document.addEventListener("touchstart", (e) => {
+      this.touchStartY = e.touches[0].clientY;
+    });
+
+    document.addEventListener("touchmove", (e) => {
+      const currentY = e.touches[0].clientY;
+      const deltaY = currentY - this.touchStartY;
+
+      if (deltaY > 0) {
+        e.preventDefault();
+      }
+    }, { passive: false });
+  }
 
   initDevUI() {
     if (this.isDevMode) {
@@ -307,12 +310,7 @@ export class UIManager {
   handleResize() {
     this.app.renderer.resize(window.innerWidth, window.innerHeight);
     this.app.stage.hitArea = new PIXI.Rectangle(0, 0, window.innerWidth, window.innerHeight);
-    if (this.minimapCanvas) {
-      this.minimapCanvas.style.top = this.isMobile ? "2vh" : "4vh";
-      this.minimapCanvas.style.left = this.isMobile ? "2vw" : "4vw";
-      this.minimapCanvas.style.width = this.isMobile ? "100px" : "150px";
-      this.minimapCanvas.style.height = this.isMobile ? "100px" : "150px";
-    }
+    this.updateMinimapPosition();
   }
 
   getTargetAngle() {

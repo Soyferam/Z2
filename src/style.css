@@ -270,21 +270,21 @@ html, body {
 
 @media (max-width: 768px) {
   #minimap {
-    top: 2vh;
-    left: 2vw;
+    top: 12vh;
+    left: 6vw;
     width: 100px;
     height: 100px;
   }
   .profit-box {
-    top: 2vh;
+    top: 12vh;
     right: 2vw;
     min-width: 120px;
     padding: 8px 12px;
     font-size: 12px;
   }
   .exit-buttons {
-    top: 10vh;
-    right: 2vw;
+    top: 19vh;
+    right: 3vw;
     min-width: 120px;
     max-width: 120px;
     gap: 8px;
@@ -300,7 +300,7 @@ html, body {
     padding: 6px;
   }
   .exit-btn, .quick-exit-btn {
-    padding: 6px;
+    padding: 7px 3px;
     font-size: 12px;
   }
   .boost-btn {
@@ -322,7 +322,7 @@ html, body {
     max-width: 300px;
     padding: 15px;
     width: 140px; /* Увеличенная зона */
-  height: 140px; /* Увеличенная зона */
+  height: 180px; /* Увеличенная зона */
     padding: 20px; /* Прозрачная область для перехвата касаний */
   }
   .game-over-content h2 {
