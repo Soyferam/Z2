@@ -180,49 +180,74 @@ export class UIManager {
   }
 
   initEventListeners() {
-    if (this.boostButton && this.isMobile) {
-      console.log("Кнопка буста найдена, настройка событий для мобильных");
-      this.boostButton.removeEventListener("touchstart", this.handleTouchStart);
-      this.boostButton.removeEventListener("touchend", this.handleTouchEnd);
+  // Существующие обработчики для кнопок буста
+  if (this.boostButton && this.isMobile) {
+    console.log("Кнопка буста найдена, настройка событий для мобильных");
+    this.boostButton.removeEventListener("touchstart", this.handleTouchStart);
+    this.boostButton.removeEventListener("touchend", this.handleTouchEnd);
 
-      this.handleTouchStart = (e) => {
-        e.preventDefault();
-        if (this.tokens > 11) {
-          this.isBoosting = true;
-          console.log("Буст активирован через касание");
-        } else {
-          console.log(`Буст не активирован: недостаточно токенов (${this.tokens})`);
-        }
-      };
-      this.handleTouchEnd = () => {
-        this.isBoosting = false;
-        console.log("Буст деактивирован через окончание касания");
-      };
+    this.handleTouchStart = (e) => {
+      e.preventDefault();
+      if (this.tokens > 11) {
+        this.isBoosting = true;
+        console.log("Буст активирован через касание");
+      } else {
+        console.log(`Буст не активирован: недостаточно токенов (${this.tokens})`);
+      }
+    };
+    this.handleTouchEnd = () => {
+      this.isBoosting = false;
+      console.log("Буст деактивирован через окончание касания");
+    };
 
-      this.boostButton.addEventListener("touchstart", this.handleTouchStart);
-      this.boostButton.addEventListener("touchend", this.handleTouchEnd);
-      this.boostButton.disabled = this.tokens <= 11;
-    } else if (this.boostButton) {
-      console.log("Кнопка буста найдена, но игнорируется на десктопе");
-      this.boostButton.disabled = true;
-    } else {
-      console.warn("Кнопка буста не найдена");
-    }
+    this.boostButton.addEventListener("touchstart", this.handleTouchStart);
+    this.boostButton.addEventListener("touchend", this.handleTouchEnd);
+    this.boostButton.disabled = this.tokens <= 11;
+  } else if (this.boostButton) {
+    console.log("Кнопка буста найдена, но игнорируется на десктопе");
+    this.boostButton.disabled = true;
+  } else {
+    console.warn("Кнопка буста не найдена");
+  }
 
-    if (this.exitButton) {
-      this.exitButton.addEventListener("click", () => {
+  // Обработчики для кнопок выхода с использованием Telegram Web App API
+  if (this.exitButton) {
+    this.exitButton.addEventListener("click", () => {
+      if (window.Telegram && window.Telegram.WebApp) {
+        window.Telegram.WebApp.close(); // Закрываем приложение через API
+      } else {
         alert("Exit: Баланс сохранён.");
         window.location.reload();
-      });
-    }
+      }
+    });
+  }
 
-    if (this.quickExitButton) {
-      this.quickExitButton.addEventListener("click", () => {
+  if (this.quickExitButton) {
+    this.quickExitButton.addEventListener("click", () => {
+      if (window.Telegram && window.Telegram.WebApp) {
+        // Можно добавить логику для штрафа 10% перед закрытием
+        window.Telegram.WebApp.close();
+      } else {
         alert("Quick Exit: Баланс сохранён с 10% штрафом.");
         window.location.reload();
-      });
-    }
+      }
+    });
   }
+
+  // Предотвращаем свайп вниз
+  document.addEventListener("touchstart", (e) => {
+    this.touchStartY = e.touches[0].clientY;
+  });
+
+  document.addEventListener("touchmove", (e) => {
+    const currentY = e.touches[0].clientY;
+    const deltaY = currentY - this.touchStartY;
+
+    if (deltaY > 0) {
+      e.preventDefault();
+    }
+  }, { passive: false });
+}
 
   initDevUI() {
     if (this.isDevMode) {
