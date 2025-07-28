@@ -321,6 +321,9 @@ html, body {
     min-width: 200px;
     max-width: 300px;
     padding: 15px;
+    width: 140px; /* Увеличенная зона */
+  height: 140px; /* Увеличенная зона */
+    padding: 20px; /* Прозрачная область для перехвата касаний */
   }
   .game-over-content h2 {
     font-size: 20px;
@@ -334,13 +337,14 @@ html, body {
   }
 }
 
-@media (max-width: 768px) and (orientation: portrait) {
+@media (max-width: 768px) {
   .joystick {
     left: 15%;
     top: 79%;
-    width: 100px;
-    height: 100px;
+    width: 120px;
+    height: 120px;
     display: block;
+    padding: 20px; /* Прозрачная область */
   }
 }
 
@@ -348,9 +352,10 @@ html, body {
   .joystick {
     left: 10%;
     top: 10%;
-    width: 100px;
-    height: 100px;
+    width: 120px;
+    height: 120px;
     display: block;
+    padding: 20px; /* Прозрачная область */
   }
 }
 
