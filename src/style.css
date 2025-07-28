@@ -17,6 +17,8 @@ html, body {
 @font-face {
   font-family: 'AntonSC';
   src: url('../fonts/AntonSC-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
 }
 
 #game-container {
@@ -65,7 +67,7 @@ html, body {
   min-width: 150px;
   max-width: 200px;
   z-index: 100;
-  font-family: 'AntonSC';
+  font-family: 'AntonSC', sans-serif;
   color: #fff;
 }
 
@@ -82,7 +84,7 @@ html, body {
   flex-direction: column;
   gap: 8px;
   z-index: 100;
-  font-family: 'AntonSC';
+  font-family: 'AntonSC', sans-serif;
   color: #fff;
 }
 
@@ -102,7 +104,7 @@ html, body {
   border-radius: 8px;
   padding: 8px;
   font-size: 14px;
-  font-family: 'AntonSC';
+  font-family: 'AntonSC', sans-serif;
   color: #fff;
   cursor: pointer;
   text-align: center;
@@ -138,7 +140,7 @@ html, body {
   border-radius: 20px;
   padding: 8px;
   font-size: 14px;
-  font-family: 'AntonSC';
+  font-family: 'AntonSC', sans-serif;
   color: #fff;
   cursor: pointer;
   text-align: center;
@@ -156,7 +158,7 @@ html, body {
   border-radius: 20px;
   padding: 8px 20px;
   font-size: 14px;
-  font-family: 'AntonSC';
+  font-family: 'AntonSC', sans-serif;
   color: #fff;
   cursor: pointer;
   text-align: center;
@@ -166,10 +168,10 @@ html, body {
 
 .joystick {
   position: fixed;
-  bottom: 10vh;
-  left: 14vw;
-  width: 100px;
-  height: 100px;
+  bottom: 4vh;
+  left: 4vw;
+  width: 120px;
+  height: 120px;
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.25);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
@@ -180,14 +182,90 @@ html, body {
   display: none;
 }
 
+/* Game Over Screen Styles */
+.game-over-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.7);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.game-over-content {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  min-width: 250px;
+  max-width: 350px;
+  font-family: 'AntonSC', sans-serif;
+  color: #fff;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  text-align: center;
+}
+
+.game-over-content h2 {
+  font-size: 24px;
+  color: #ff3333;
+}
+
+.balance-text {
+  font-size: 18px;
+}
+
+.game-over-buttons {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  width: 100%;
+}
+
+.game-over-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+  padding: 10px;
+  font-size: 16px;
+  font-family: 'AntonSC', sans-serif;
+  color: #fff;
+  cursor: pointer;
+  text-align: center;
+  transition: 0.3s ease;
+  flex: 1;
+}
+
+.game-over-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
 .nipple {
   width: 100% !important;
   height: 100% !important;
+  position: absolute;
+  top: 0;
+  left: 0;
 }
 
 .nipple .front {
   background: rgba(255, 255, 255, 0.3) !important;
   border-radius: 50% !important;
+  width: 50% !important;
+  height: 50% !important;
+  position: absolute;
+  top: 25%;
+  left: 25%;
 }
 
 @media (max-width: 768px) {
@@ -233,45 +311,45 @@ html, body {
     display: block;
   }
   .joystick {
-    bottom: 10vh;
-    left: 14vw;
+    left: 20%;
+    top: 1000%;
+    width: 100px;
+    height: 100px;
+    display: block;
+  }
+  .game-over-content {
+    min-width: 200px;
+    max-width: 300px;
+    padding: 15px;
+  }
+  .game-over-content h2 {
+    font-size: 20px;
+  }
+  .balance-text {
+    font-size: 16px;
+  }
+  .game-over-btn {
+    font-size: 14px;
+    padding: 8px;
+  }
+}
+
+@media (max-width: 768px) and (orientation: portrait) {
+  .joystick {
+    left: 15%;
+    top: 79%;
     width: 100px;
     height: 100px;
     display: block;
   }
 }
 
-@media (orientation: landscape) and (max-height: 600px) {
-  #minimap {
-    top: 2vh;
-    left: 2vw;
-    width: 120px;
-    height: 120px;
-  }
-  .profit-box {
-    top: 2vh;
-    right: 2vw;
-  }
-  .exit-buttons {
-    top: 10vh;
-    right: 2vw;
-    min-width: 120px;
-    max-width: 120px;
-    gap: 8px;
-  }
-  .dev-container {
-    top: 16vh;
-    right: 2vw;
-    min-width: 120px;
-  }
-  .boost-btn {
-    bottom: 2vh;
-    right: 2vw;
-    display: block;
-  }
+@media (max-width: 768px) and (orientation: landscape) {
   .joystick {
-    bottom: 2vh;
-    left: 2vw;
+    left: 10%;
+    top: 10%;
+    width: 100px;
+    height: 100px;
     display: block;
   }
 }

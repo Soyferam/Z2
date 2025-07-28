@@ -6,8 +6,64 @@
   <title>Crypto Snake</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐍</text></svg>">
   <link rel="stylesheet" href="src/style.css">
+  <style>
+    /* Loading Screen Styles */
+    .loading-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: #1a1a1a;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      transition: opacity 0.5s ease;
+    }
+
+    .loading-content {
+      text-align: center;
+      color: #fff;
+      font-family: 'AntonSC', sans-serif;
+      font-size: 24px;
+    }
+
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid #fff;
+      border-top: 4px solid #1eff00;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
 </head>
 <body>
+  <!-- Loading Screen -->
+  <div id="loading-screen" class="loading-screen">
+    <div class="loading-content">
+      <div class="loading-spinner"></div>
+      <p>Loading 🐍Shhh...</p>
+    </div>
+  </div>
+  <!-- Game Over Screen -->
+  <div id="game-over-screen" class="game-over-screen">
+    <div class="game-over-content">
+      <h2>You Died!</h2>
+      <p class="balance-text">Your Balance: <span class="balance-amount">0.00 TON</span></p>
+      <div class="game-over-buttons">
+        <button id="play-again-btn" class="game-over-btn">Play Again</button>
+        <button id="exit-menu-btn" class="game-over-btn">Exit to Menu</button>
+      </div>
+    </div>
+  </div>
   <div id="game-container"></div>
   <div id="minimap" class="minimap"></div>
   <div id="profit-box" class="profit-box">
@@ -25,5 +81,17 @@
   <script defer src="https://pixijs.download/v7.4.0/pixi.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/nipplejs@0.10.0/dist/nipplejs.min.js"></script>
   <script type="module" defer src="src/game.js"></script>
+  <script>
+    // Hide loading screen after 4 seconds
+    setTimeout(() => {
+      const loadingScreen = document.getElementById("loading-screen");
+      if (loadingScreen) {
+        loadingScreen.style.opacity = "0";
+        setTimeout(() => {
+          loadingScreen.style.display = "none";
+        }, 500); // Match transition duration
+      }
+    }, 4000);
+  </script>
 </body>
 </html>

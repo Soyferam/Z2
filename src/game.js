@@ -515,8 +515,29 @@ window.addEventListener("DOMContentLoaded", async () => {
           bodyGlowGraphics.destroy();
           app.ticker.remove(animate);
 
-          alert("Игра окончена! Вы столкнулись с другой змеёй.");
-          window.location.reload();
+          // Show game over screen
+          const gameOverScreen = document.getElementById("game-over-screen");
+          const gameOverBalance = document.querySelector("#game-over-screen .balance-amount");
+          if (gameOverScreen && gameOverBalance) {
+            gameOverBalance.textContent = `${uiManager.tonBalance.toFixed(2)} TON`;
+            gameOverScreen.style.display = "flex";
+          } else {
+            console.error("Game over screen or balance element not found!");
+          }
+
+          // Add event listeners for buttons
+          const playAgainBtn = document.getElementById("play-again-btn");
+          const exitMenuBtn = document.getElementById("exit-menu-btn");
+          if (playAgainBtn) {
+            playAgainBtn.addEventListener("click", () => {
+              window.location.reload();
+            });
+          }
+          if (exitMenuBtn) {
+            exitMenuBtn.addEventListener("click", () => {
+              window.location.href = "https://z-ten-iota.vercel.app/";
+            });
+          }
         }
       } catch (error) {
         console.error(`Ошибка в анимации смерти игрока: ${error}`);
@@ -527,8 +548,30 @@ window.addEventListener("DOMContentLoaded", async () => {
         snakeBodyGraphics.destroy();
         bodyGlowGraphics.destroy();
         app.ticker.remove(animate);
-        alert("Игра окончена! Произошла ошибка.");
-        window.location.reload();
+
+        // Show game over screen even in case of error
+        const gameOverScreen = document.getElementById("game-over-screen");
+        const gameOverBalance = document.querySelector("#game-over-screen .balance-amount");
+        if (gameOverScreen && gameOverBalance) {
+          gameOverBalance.textContent = `${uiManager.tonBalance.toFixed(2)} TON`;
+          gameOverScreen.style.display = "flex";
+        } else {
+          console.error("Game over screen or balance element not found!");
+        }
+
+        // Add event listeners for buttons
+        const playAgainBtn = document.getElementById("play-again-btn");
+        const exitMenuBtn = document.getElementById("exit-menu-btn");
+        if (playAgainBtn) {
+          playAgainBtn.addEventListener("click", () => {
+            window.location.reload();
+          });
+        }
+        if (exitMenuBtn) {
+          exitMenuBtn.addEventListener("click", () => {
+            window.location.href = "https://z-ten-iota.vercel.app/";
+          });
+        }
       }
     };
 

@@ -148,19 +148,21 @@ export class UIManager {
         this.joystick = nipplejs.create({
           zone: this.joystickContainer,
           mode: "static",
-          position: { bottom: "10vh", left: "14vw" },
+          position: { left: "50%", top: "50%" }, // Восстановлено из старого кода
           color: "white",
           size: 100,
         });
 
         this.joystick.on("move", (evt, data) => {
           if (data.direction) {
-            this.targetAngle = data.angle.radian - Math.PI / 2;
+            this.targetAngle = -data.angle.radian; // Восстановлено из старого кода
+            this.targetAngle = ((this.targetAngle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+            if (this.targetAngle > Math.PI) this.targetAngle -= 2 * Math.PI;
           }
         });
 
         this.joystick.on("end", () => {
-          // Не меняем угол при отпускании джойстика
+          // Не меняем угол при отпускании джойстика (как в старом коде)
         });
       } catch (error) {
         console.error(`Ошибка инициализации джойстика: ${error}`);
@@ -268,10 +270,6 @@ export class UIManager {
       this.minimapCanvas.style.left = this.isMobile ? "2vw" : "4vw";
       this.minimapCanvas.style.width = this.isMobile ? "100px" : "150px";
       this.minimapCanvas.style.height = this.isMobile ? "100px" : "150px";
-    }
-    if (this.joystickContainer && this.isMobile) {
-      this.joystickContainer.style.bottom = "10vh";
-      this.joystickContainer.style.left = "14vw";
     }
   }
 
