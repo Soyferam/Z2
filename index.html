@@ -6,8 +6,8 @@
   <title>Crypto Snake</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐍</text></svg>">
   <link rel="stylesheet" href="src/style.css">
+  <!-- Стили для экрана загрузки -->
   <style>
-    /* Loading Screen Styles */
     .loading-screen {
       position: fixed;
       top: 0;
@@ -80,8 +80,16 @@
   <div id="joystick" class="joystick"></div>
   <script defer src="https://pixijs.download/v7.4.0/pixi.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/nipplejs@0.10.0/dist/nipplejs.min.js"></script>
+  <script defer src="https://telegram.org/js/telegram-web-app.js"></script> <!-- Добавляем Telegram Web App SDK -->
   <script type="module" defer src="src/game.js"></script>
   <script>
+    // Инициализация Telegram Web App
+    if (window.Telegram && window.Telegram.WebApp) {
+      const tg = window.Telegram.WebApp;
+      tg.expand(); // Полноэкранный режим
+      tg.enableClosingConfirmation(); // Включаем подтверждение закрытия (опционально)
+    }
+
     // Hide loading screen after 4 seconds
     setTimeout(() => {
       const loadingScreen = document.getElementById("loading-screen");
@@ -89,7 +97,7 @@
         loadingScreen.style.opacity = "0";
         setTimeout(() => {
           loadingScreen.style.display = "none";
-        }, 500); // Match transition duration
+        }, 500);
       }
     }, 4000);
   </script>
