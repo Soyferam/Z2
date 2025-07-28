@@ -132,52 +132,69 @@ export class UIManager {
   }
 
   initJoystick() {
-    if (this.isMobile) {
-      if (this.joystick) {
-        this.joystick.destroy();
-        this.joystick = null;
-      }
-      this.joystickContainer = document.getElementById("joystick");
-      if (!this.joystickContainer) {
-        console.warn("Контейнер джойстика не найден, создаём новый");
-        this.joystickContainer = document.createElement("div");
-        this.joystickContainer.id = "joystick";
-        document.body.appendChild(this.joystickContainer);
-      }
-      try {
-        this.joystick = nipplejs.create({
-          zone: this.joystickContainer,
-          mode: "static",
-          position: { left: "50%", top: "50%" }, // Восстановлено из старого кода
-          color: "white",
-          size: 100,
-        });
+  if (this.isMobile) {
+    if (this.joystick) {
+      this.joystick.destroy();
+      this.joystick = null;
+    }
+    this.joystickContainer = document.getElementById("joystick");
+    if (!this.joystickContainer) {
+      console.warn("Контейнер джойстика не найден, создаём новый");
+      this.joystickContainer = document.createElement("div");
+      this.joystickContainer.id = "joystick";
+      document.body.appendChild(this.joystickContainer);
+    }
 
-        this.joystick.on("move", (evt, data) => {
-          if (data.direction) {
-            this.targetAngle = -data.angle.radian; // Восстановлено из старого кода
-            this.targetAngle = ((this.targetAngle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
-            if (this.targetAngle > Math.PI) this.targetAngle -= 2 * Math.PI;
-          }
-        });
+    // Предотвращаем все стандартные события касания в области джойстика
+    this.joystickContainer.addEventListener("touchstart", (e) => {
+      e.preventDefault(); // Блокируем стандартное поведение
+      e.stopPropagation(); // Предотвращаем передачу события выше
+    }, { passive: false });
 
-        this.joystick.on("end", () => {
-          // Не меняем угол при отпускании джойстика (как в старом коде)
-        });
-      } catch (error) {
-        console.error(`Ошибка инициализации джойстика: ${error}`);
-      }
-    } else {
-      if (this.joystick) {
-        this.joystick.destroy();
-        this.joystick = null;
-      }
-      if (this.joystickContainer) {
-        this.joystickContainer.remove();
-        this.joystickContainer = null;
-      }
+    this.joystickContainer.addEventListener("touchmove", (e) => {
+      e.preventDefault(); // Блокируем стандартное поведение
+      e.stopPropagation(); // Предотвращаем передачу события выше
+    }, { passive: false });
+
+    this.joystickContainer.addEventListener("touchend", (e) => {
+      e.preventDefault(); // Блокируем стандартное поведение
+      e.stopPropagation(); // Предотвращаем передачу события выше
+    }, { passive: false });
+
+    try {
+      this.joystick = nipplejs.create({
+        zone: this.joystickContainer,
+        mode: "static",
+        position: { left: "50%", top: "50%" },
+        color: "white",
+        size: 100,
+      });
+
+      this.joystick.on("move", (evt, data) => {
+        if (data.direction) {
+          this.targetAngle = -data.angle.radian;
+          this.targetAngle = ((this.targetAngle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+          if (this.targetAngle > Math.PI) this.targetAngle -= 2 * Math.PI;
+        }
+      });
+
+      this.joystick.on("end", () => {
+        // Не меняем угол при отпускании джойстика
+      });
+    } catch (error) {
+      console.error(`Ошибка инициализации джойстика: ${error}`);
+    }
+  } else {
+    if (this.joystick) {
+      this.joystick.destroy();
+      this.joystick = null;
+    }
+    if (this.joystickContainer) {
+      this.joystickContainer.remove();
+      this.joystickContainer = null;
     }
   }
+}
 
   initEventListeners() {
   // Существующие обработчики для кнопок буста
