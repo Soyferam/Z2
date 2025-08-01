@@ -3,11 +3,31 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Crypto Snake</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐍</text></svg>">
   <link rel="stylesheet" href="src/style.css">
-  <!-- Стили для экрана загрузки -->
+  <!-- Подключаем Lottie -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.12.2/lottie.min.js" onload="window.lottieLoaded = true;"></script>
+  <!-- Preload ресурсов -->
+  <link rel="preload" href="./img/logo.png" as="image">
+  <link rel="preload" href="./img/snake-logo.png" as="image">
+  <link rel="preload" href="./img/profit-card-bg.png" as="image">
+  <link rel="preload" href="./videos/guide1.mp4" as="video">
+  <link rel="preload" href="./videos/guide2.mp4" as="video">
+  <link rel="preload" href="./videos/guide3.mp4" as="video">
+  <link rel="preload" href="./videos/guide4.mp4" as="video">
+  <link rel="preload" href="./videos/guide5.mp4" as="video">
   <style>
+    @font-face {
+      font-family: 'AntonSC';
+      src: url('./fonts/AntonSC-Regular.ttf') format('truetype');
+    }
+    @font-face {
+      font-family: 'Press Start 2P';
+      src: url('./fonts/PressStart2P-Regular.ttf') format('truetype');
+    }
     .loading-screen {
       position: fixed;
       top: 0;
@@ -21,35 +41,32 @@
       z-index: 1000;
       transition: opacity 0.5s ease;
     }
-
     .loading-content {
       text-align: center;
       color: #fff;
       font-family: 'AntonSC', sans-serif;
       font-size: 24px;
     }
-
-    .loading-spinner {
-      width: 40px;
-      height: 40px;
-      border: 4px solid #fff;
-      border-top: 4px solid #1eff00;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
+    #loading-animation {
+      width: 150px;
+      height: 150px;
       margin: 0 auto 20px;
+      background: transparent;
     }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
+    .fallback-text {
+      display: none;
+      color: #ff0000;
+      font-size: 16px;
     }
   </style>
 </head>
 <body>
   <!-- Loading Screen -->
+  <div style="font-family: 'AntonSC', 'Press Start 2P'; position: absolute; visibility: hidden;">Preload fonts</div>
   <div id="loading-screen" class="loading-screen">
     <div class="loading-content">
-      <div class="loading-spinner"></div>
+      <div id="loading-animation"></div>
+      <p class="fallback-text">Animation failed to load</p>
       <p>Loading 🐍Shhh...</p>
     </div>
   </div>
@@ -64,6 +81,18 @@
       </div>
     </div>
   </div>
+  <!-- Exit Screen -->
+  <div id="exit-screen" class="exit-screen">
+    <div class="exit-content">
+      <h2>Great Job!</h2>
+      <p class="tokens-text">Total Tokens: <span class="token-amount-exit">0</span></p>
+      <p class="balance-text">Total TON: <span class="balance-amount-exit">0.00 TON</span></p>
+      <div class="exit-buttons-container">
+        <button id="exit-menu-btn-exit" class="exit-btn-exit">Exit to Menu</button>
+        <button id="share-btn" class="exit-btn-exit">Share</button>
+      </div>
+    </div>
+  </div>
   <div id="game-container"></div>
   <div id="minimap" class="minimap"></div>
   <div id="profit-box" class="profit-box">
@@ -74,32 +103,149 @@
   </div>
   <div id="exit-buttons" class="exit-buttons">
     <button id="exit-btn" class="exit-btn">Exit</button>
-    <button id="quick-exit-btn" class="quick-exit-btn">Quick Exit (-10%)</button>
+    <button id="quick-exit-btn" class="exit-btn">Quick Exit (-10%)</button>
   </div>
   <button id="boost-btn" class="boost-btn">Boost</button>
   <div id="joystick" class="joystick"></div>
   <script defer src="https://pixijs.download/v7.4.0/pixi.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/nipplejs@0.10.0/dist/nipplejs.min.js"></script>
-  <script defer src="https://telegram.org/js/telegram-web-app.js"></script> <!-- Добавляем Telegram Web App SDK -->
+  <script defer src="https://telegram.org/js/telegram-web-app.js"></script>
   <script type="module" defer src="src/game.js"></script>
   <script>
-    // Инициализация Telegram Web App
-    if (window.Telegram && window.Telegram.WebApp) {
-      const tg = window.Telegram.WebApp;
-      tg.expand(); // Полноэкранный режим
-      tg.enableClosingConfirmation(); // Включаем подтверждение закрытия (опционально)
-    }
-
-    // Hide loading screen after 4 seconds
-    setTimeout(() => {
-      const loadingScreen = document.getElementById("loading-screen");
-      if (loadingScreen) {
-        loadingScreen.style.opacity = "0";
-        setTimeout(() => {
-          loadingScreen.style.display = "none";
-        }, 500);
+    window.addEventListener("DOMContentLoaded", () => {
+      if (window.Telegram && window.Telegram.WebApp) {
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        tg.enableClosingConfirmation();
+        console.log('Telegram Web App initialized');
+      } else {
+        console.log('Telegram Web App not available');
       }
-    }, 4000);
+
+      if (!window.lottieLoaded || !window.lottie) {
+        console.error('Lottie library not loaded');
+        document.querySelector('.fallback-text').style.display = 'block';
+        startLoading();
+        return;
+      }
+
+      try {
+        const animation = lottie.loadAnimation({
+          container: document.getElementById('loading-animation'),
+          renderer: 'canvas',
+          loop: true,
+          autoplay: true,
+          path: './assets/loading.json'
+        });
+
+        animation.addEventListener('error', (e) => {
+          console.error('Lottie animation failed to load:', e);
+          document.querySelector('.fallback-text').style.display = 'block';
+        });
+
+        animation.addEventListener('data_ready', () => {
+          console.log('Lottie animation loaded successfully');
+          startLoading();
+        });
+      } catch (error) {
+        console.error('Lottie initialization error:', error);
+        document.querySelector('.fallback-text').style.display = 'block';
+        startLoading();
+      }
+
+      function startLoading() {
+        const resources = [
+          document.fonts.ready.catch(() => console.log('Fonts failed to load')),
+          new Promise(resolve => {
+            const img1 = new Image();
+            img1.src = './img/logo.png';
+            img1.onload = resolve;
+            img1.onerror = () => {
+              console.log('logo.png failed to load');
+              resolve();
+            };
+          }),
+          new Promise(resolve => {
+            const img2 = new Image();
+            img2.src = './img/snake-logo.png';
+            img2.onload = resolve;
+            img2.onerror = () => {
+              console.log('snake-logo.png failed to load');
+              resolve();
+            };
+          }),
+          new Promise(resolve => {
+            const img3 = new Image();
+            img3.src = './img/profit-card-bg.png';
+            img3.onload = resolve;
+            img3.onerror = () => {
+              console.log('profit-card-bg.png failed to load');
+              resolve();
+            };
+          }),
+          new Promise(resolve => {
+            const video1 = document.createElement('video');
+            video1.src = './videos/guide1.mp4';
+            video1.onloadeddata = resolve;
+            video1.onerror = () => {
+              console.log('guide1.mp4 failed to load');
+              resolve();
+            };
+          }),
+          new Promise(resolve => {
+            const video2 = document.createElement('video');
+            video2.src = './videos/guide2.mp4';
+            video2.onloadeddata = resolve;
+            video2.onerror = () => {
+              console.log('guide2.mp4 failed to load');
+              resolve();
+            };
+          }),
+          new Promise(resolve => {
+            const video3 = document.createElement('video');
+            video3.src = './videos/guide3.mp4';
+            video3.onloadeddata = resolve;
+            video3.onerror = () => {
+              console.log('guide3.mp4 failed to load');
+              resolve();
+            };
+          }),
+          new Promise(resolve => {
+            const video4 = document.createElement('video');
+            video4.src = './videos/guide4.mp4';
+            video4.onloadeddata = resolve;
+            video4.onerror = () => {
+              console.log('guide4.mp4 failed to load');
+              resolve();
+            };
+          }),
+          new Promise(resolve => {
+            const video5 = document.createElement('video');
+            video5.src = './videos/guide5.mp4';
+            video5.onloadeddata = resolve;
+            video5.onerror = () => {
+              console.log('guide5.mp4 failed to load');
+              resolve();
+            };
+          })
+        ];
+
+        console.log('Starting resource loading');
+        Promise.race([
+          Promise.all(resources),
+          new Promise(resolve => setTimeout(resolve, 5000))
+        ]).then(() => {
+          console.log('Resources loaded or 5 seconds elapsed');
+          const loadingScreen = document.getElementById('loading-screen');
+          if (loadingScreen) {
+            loadingScreen.style.opacity = '0';
+            setTimeout(() => {
+              loadingScreen.style.display = 'none';
+            }, 500);
+          }
+        });
+      }
+    });
   </script>
 </body>
 </html>

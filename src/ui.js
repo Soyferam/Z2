@@ -21,10 +21,15 @@ export class UIManager {
 
     // Initialize DOM elements
     this.tokenDisplay = document.querySelector(".token-amount");
-    this.balanceDisplay = null; // Initialize as null
+    this.balanceDisplay = null;
     this.exitButton = document.getElementById("exit-btn");
     this.quickExitButton = document.getElementById("quick-exit-btn");
     this.boostButton = document.getElementById("boost-btn");
+    this.exitScreen = document.getElementById("exit-screen");
+    this.tokenAmountExit = document.querySelector(".token-amount-exit");
+    this.balanceAmountExit = document.querySelector(".balance-amount-exit");
+    this.exitMenuButtonExit = document.getElementById("exit-menu-btn-exit");
+    this.shareButton = document.getElementById("share-btn");
 
     this.isDevMode = new URLSearchParams(window.location.search).get("dev") === "true";
     this.devContainer = null;
@@ -32,9 +37,7 @@ export class UIManager {
     this.devButton = null;
     this.devResetButton = null;
 
-    // Initialize balance display
     this.initializeBalanceDisplay();
-
     this.initMinimap();
     this.initJoystick();
     this.initEventListeners();
@@ -64,52 +67,42 @@ export class UIManager {
   }
 
   addTon(amount) {
-  console.log(`🪙 addTon вызван с amount: ${amount}`);
-  console.log(`🪙 Баланс ДО: ${this.tonBalance}`);
-  
-  this.tonBalance += amount;
-  
-  console.log(`🪙 Баланс ПОСЛЕ: ${this.tonBalance}`);
-  console.log(`🪙 Элемент balanceDisplay:`, this.balanceDisplay);
-  
-  // Принудительное обновление
-  if (this.balanceDisplay) {
-    const newText = `${this.tonBalance.toFixed(2)} TON`;
-    this.balanceDisplay.textContent = newText;
-    console.log(`🪙 UI обновлен на: ${newText}`);
-  } else {
-    console.error(`🪙 ОШИБКА: balanceDisplay не найден!`);
+    console.log(`🪙 addTon вызван с amount: ${amount}`);
+    console.log(`🪙 Баланс ДО: ${this.tonBalance}`);
+    this.tonBalance += amount;
+    console.log(`🪙 Баланс ПОСЛЕ: ${this.tonBalance}`);
+    console.log(`🪙 Элемент balanceDisplay:`, this.balanceDisplay);
+    if (this.balanceDisplay) {
+      const newText = `${this.tonBalance.toFixed(2)} TON`;
+      this.balanceDisplay.textContent = newText;
+      console.log(`🪙 UI обновлен на: ${newText}`);
+    } else {
+      console.error(`🪙 ОШИБКА: balanceDisplay не найден!`);
+    }
+    const directElement = document.querySelector('.balance-amount');
+    if (directElement) {
+      directElement.textContent = `${this.tonBalance.toFixed(2)} TON`;
+      console.log(`🪙 Прямое обновление через querySelector выполнено`);
+    }
+    this.saveProfitData();
   }
-  
-  // Дополнительная проверка через querySelector
-  const directElement = document.querySelector('.balance-amount');
-  if (directElement) {
-    directElement.textContent = `${this.tonBalance.toFixed(2)} TON`;
-    console.log(`🪙 Прямое обновление через querySelector выполнено`);
-  }
-}
-
 
   updateBalanceDisplay() {
-  console.log(`🪙 updateBalanceDisplay вызван, баланс: ${this.tonBalance}`);
-  
-  if (this.balanceDisplay) {
-    const formattedBalance = this.tonBalance.toFixed(2);
-    this.balanceDisplay.textContent = `${formattedBalance} TON`;
-    console.log(`🪙 updateBalanceDisplay: установлен текст "${formattedBalance} TON"`);
-  } else {
-    console.error("🪙 updateBalanceDisplay: balanceDisplay элемент не найден!");
-    
-    // Попытка найти элемент заново
-    this.balanceDisplay = document.querySelector(".balance-amount");
+    console.log(`🪙 updateBalanceDisplay вызван, баланс: ${this.tonBalance}`);
     if (this.balanceDisplay) {
       const formattedBalance = this.tonBalance.toFixed(2);
       this.balanceDisplay.textContent = `${formattedBalance} TON`;
-      console.log(`🪙 Элемент найден заново и обновлен: ${formattedBalance} TON`);
+      console.log(`🪙 updateBalanceDisplay: установлен текст "${formattedBalance} TON"`);
+    } else {
+      console.error("🪙 updateBalanceDisplay: balanceDisplay элемент не найден!");
+      this.balanceDisplay = document.querySelector(".balance-amount");
+      if (this.balanceDisplay) {
+        const formattedBalance = this.tonBalance.toFixed(2);
+        this.balanceDisplay.textContent = `${formattedBalance} TON`;
+        console.log(`🪙 Элемент найден заново и обновлен: ${formattedBalance} TON`);
+      }
     }
   }
-}
-
 
   refreshBalanceDisplay() {
     if (!this.balanceDisplay) {
@@ -131,11 +124,181 @@ export class UIManager {
       this.boostButton.disabled = this.tokens <= 11;
     }
     console.log(`Tokens updated: ${Math.floor(this.tokens)}`);
+    this.saveProfitData();
+  }
+
+  saveProfitData() {
+    const profitData = {
+      username: window.Telegram?.WebApp?.initDataUnsafe?.user?.username || "Player",
+      tokens: Math.floor(this.tokens),
+      tonBalance: this.tonBalance,
+      timestamp: new Date().toISOString(),
+    };
+    localStorage.setItem("profitData", JSON.stringify(profitData));
+    console.log("Profit data saved to localStorage:", profitData);
+  }
+
+  generateProfitCard() {
+    const profitData = JSON.parse(localStorage.getItem("profitData")) || {
+      username: "Player",
+      tokens: Math.floor(this.tokens),
+      tonBalance: this.tonBalance,
+      timestamp: new Date().toISOString(),
+    };
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 400;
+    canvas.height = 200;
+    const ctx = canvas.getContext("2d");
+
+    // Load background image
+    const bgImage = new Image();
+    bgImage.src = "./img/profit-card-bg.png";
+    bgImage.onload = () => {
+      ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
+
+      // Load snake logo
+      const logo = new Image();
+      logo.src = "./img/snake-logo.png";
+      logo.onload = () => {
+        ctx.drawImage(logo, 10, 10, 50, 50);
+
+        // Draw text
+        ctx.font = "bold 20px AntonSC";
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillText(`@${profitData.username}`, 70, 40);
+
+        ctx.font = "16px AntonSC";
+        ctx.fillText(`Tokens: ${profitData.tokens}`, 70, 80);
+        ctx.fillText(`Balance: ${profitData.tonBalance.toFixed(2)} TON`, 70, 110);
+        ctx.fillText(`Date: ${new Date(profitData.timestamp).toLocaleDateString()}`, 70, 140);
+
+        // Convert to data URL
+        const dataUrl = canvas.toDataURL("image/png");
+        this.shareProfitCard(dataUrl);
+      };
+      logo.onerror = () => {
+        console.error("Failed to load snake-logo.png");
+        ctx.font = "bold 20px AntonSC";
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillText(`@${profitData.username}`, 70, 40);
+        ctx.font = "16px AntonSC";
+        ctx.fillText(`Tokens: ${profitData.tokens}`, 70, 80);
+        ctx.fillText(`Balance: ${profitData.tonBalance.toFixed(2)} TON`, 70, 110);
+        ctx.fillText(`Date: ${new Date(profitData.timestamp).toLocaleDateString()}`, 70, 140);
+        const dataUrl = canvas.toDataURL("image/png");
+        this.shareProfitCard(dataUrl);
+      };
+    };
+    bgImage.onerror = () => {
+      console.error("Failed to load profit-card-bg.png");
+      ctx.fillStyle = "#1a1a1a";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      const logo = new Image();
+      logo.src = "./img/snake-logo.png";
+      logo.onload = () => {
+        ctx.drawImage(logo, 10, 10, 50, 50);
+        ctx.font = "bold 20px AntonSC";
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillText(`@${profitData.username}`, 70, 40);
+        ctx.font = "16px AntonSC";
+        ctx.fillText(`Tokens: ${profitData.tokens}`, 70, 80);
+        ctx.fillText(`Balance: ${profitData.tonBalance.toFixed(2)} TON`, 70, 110);
+        ctx.fillText(`Date: ${new Date(profitData.timestamp).toLocaleDateString()}`, 70, 140);
+        const dataUrl = canvas.toDataURL("image/png");
+        this.shareProfitCard(dataUrl);
+      };
+      logo.onerror = () => {
+        console.error("Failed to load snake-logo.png");
+        ctx.font = "bold 20px AntonSC";
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillText(`@${profitData.username}`, 70, 40);
+        ctx.font = "16px AntonSC";
+        ctx.fillText(`Tokens: ${profitData.tokens}`, 70, 80);
+        ctx.fillText(`Balance: ${profitData.tonBalance.toFixed(2)} TON`, 70, 110);
+        ctx.fillText(`Date: ${new Date(profitData.timestamp).toLocaleDateString()}`, 70, 140);
+        const dataUrl = canvas.toDataURL("image/png");
+        this.shareProfitCard(dataUrl);
+      };
+    };
+  }
+
+  shareProfitCard(dataUrl) {
+    if (window.Telegram?.WebApp) {
+      const blob = this.dataURLtoBlob(dataUrl);
+      const file = new File([blob], "profit-card.png", { type: "image/png" });
+      window.Telegram.WebApp.sendData(JSON.stringify({
+        type: "shareProfitCard",
+        file: dataUrl,
+      }));
+      console.log("Profit card shared via Telegram WebApp");
+    } else {
+      const link = document.createElement("a");
+      link.href = dataUrl;
+      link.download = "profit-card.png";
+      link.click();
+      console.log("Profit card downloaded as profit-card.png");
+    }
+  }
+
+  dataURLtoBlob(dataUrl) {
+    const arr = dataUrl.split(",");
+    const mime = arr[0].match(/:(.*?);/)[1];
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], { type: mime });
+  }
+
+  showExitScreen(isQuickExit = false) {
+    if (!this.exitScreen || !this.tokenAmountExit || !this.balanceAmountExit) {
+      console.error("Exit screen elements not found!");
+      return;
+    }
+
+    // Применяем штраф 10% для быстрого выхода
+    const finalTonBalance = isQuickExit ? this.tonBalance * 0.9 : this.tonBalance;
+    const finalTokens = Math.floor(this.tokens);
+
+    this.exitScreen.style.display = "flex";
+
+    // Анимация для токенов и TON
+    let currentTokens = 0;
+    let currentTon = 0;
+    const duration = 2000; // Длительность анимации в миллисекундах
+    const startTime = performance.now();
+
+    const animate = () => {
+      const elapsed = performance.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+
+      // Линейная интерполяция для токенов и TON
+      currentTokens = Math.floor(progress * finalTokens);
+      currentTon = progress * finalTonBalance;
+
+      // Обновляем текст в UI
+      this.tokenAmountExit.textContent = currentTokens.toString();
+      this.balanceAmountExit.textContent = `${currentTon.toFixed(2)} TON`;
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        // Финальные значения
+        this.tokenAmountExit.textContent = finalTokens.toString();
+        this.balanceAmountExit.textContent = `${finalTonBalance.toFixed(2)} TON`;
+      }
+    };
+
+    requestAnimationFrame(animate);
+    console.log(`Exit screen shown: Tokens=${finalTokens}, TON=${finalTonBalance.toFixed(2)}, isQuickExit=${isQuickExit}`);
+    this.saveProfitData();
   }
 
   initMinimap() {
     this.minimapCanvas = document.getElementById("minimap");
-
     if (!(this.minimapCanvas instanceof HTMLCanvasElement)) {
       console.warn("Element #minimap is not a canvas, creating new");
       if (this.minimapCanvas) {
@@ -163,7 +326,6 @@ export class UIManager {
 
     this.minimapCanvas.style.position = "fixed";
     this.minimapCanvas.style.zIndex = "100";
-
     this.updateMinimapPosition();
     console.log("Minimap initialized");
   }
@@ -298,23 +460,26 @@ export class UIManager {
 
     if (this.exitButton) {
       this.exitButton.addEventListener("click", () => {
-        if (window.Telegram && window.Telegram.WebApp) {
-          window.Telegram.WebApp.close();
-        } else {
-          alert("Exit: Balance saved.");
-          window.location.reload();
-        }
+        this.showExitScreen(false);
       });
     }
 
     if (this.quickExitButton) {
       this.quickExitButton.addEventListener("click", () => {
-        if (window.Telegram && window.Telegram.WebApp) {
-          window.Telegram.WebApp.close();
-        } else {
-          alert("Quick Exit: Balance saved with 10% penalty.");
-          window.location.reload();
-        }
+        this.showExitScreen(true);
+      });
+    }
+
+    if (this.exitMenuButtonExit) {
+      this.exitMenuButtonExit.addEventListener("click", () => {
+        window.location.href = "https://z-ticd.vercel.app/";
+      });
+    }
+
+    if (this.shareButton) {
+      this.shareButton.addEventListener("click", () => {
+        this.generateProfitCard();
+        console.log("Share button clicked, generating profit card");
       });
     }
 
@@ -325,7 +490,6 @@ export class UIManager {
     document.addEventListener("touchmove", (e) => {
       const currentY = e.touches[0].clientY;
       const deltaY = currentY - this.touchStartY;
-
       if (deltaY > 0) {
         e.preventDefault();
       }

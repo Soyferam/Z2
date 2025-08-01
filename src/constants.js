@@ -1,6 +1,6 @@
 export const GAME_CONSTANTS = {
   // === БОТЫ ===
-  BOT_COUNT: 30,                          // Количество ботов на карте
+  BOT_COUNT: 22,                          // Количество ботов на карте
   BOT_COLORS: [
     0xFF3333, // Красный
     0x33FF33, // Зелёный

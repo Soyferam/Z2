@@ -402,4 +402,95 @@ html, body {
   #boost-btn {
     display: none;
   }
+/* Exit Screen Styles */
+.exit-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.7);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.exit-content {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  min-width: 250px;
+  max-width: 350px;
+  font-family: 'AntonSC', sans-serif;
+  color: #fff;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  text-align: center;
+}
+
+.exit-content h2 {
+  font-size: 24px;
+  color: #1eff00; /* Зеленый цвет для заголовка */
+}
+
+.tokens-text, .balance-text {
+  font-size: 18px;
+}
+
+.token-amount-exit, .balance-amount-exit {
+  color: #1eff00;
+  margin-left: 4px;
+}
+
+.exit-buttons-container {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  width: 100%;
+}
+
+.exit-btn-exit {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+  padding: 10px;
+  font-size: 16px;
+  font-family: 'AntonSC', sans-serif;
+  color: #fff;
+  cursor: pointer;
+  text-align: center;
+  transition: 0.3s ease;
+  flex: 1;
+}
+
+.exit-btn-exit:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+@media (max-width: 768px) {
+  .exit-content {
+    min-width: 200px;
+    max-width: 300px;
+    padding: 15px;
+  }
+  .exit-content h2 {
+    font-size: 20px;
+  }
+  .tokens-text, .balance-text {
+    font-size: 16px;
+  }
+  .exit-btn-exit {
+    font-size: 14px;
+    padding: 8px;
+  }
+}
+  
 }
