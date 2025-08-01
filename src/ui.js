@@ -225,20 +225,27 @@ export class UIManager {
 
   // Вставьте эти методы в ваш существующий класс UIManager в ui.js
 
+// Вставьте эти методы в ваш существующий класс UIManager в ui.js
+
 async shareProfitCard(dataUrl) {
-  // Сжимаем изображение перед отправкой (сильнее, чтобы уложиться в лимит Telegram)
-  const compressedDataUrl = await this.compressImage(dataUrl, 0.5, 300, 150);
+  // Сжимаем изображение перед отправкой (очень сильно, чтобы уложиться в лимит Telegram)
+  const compressedDataUrl = await this.compressImage(dataUrl, 0.3, 200, 100);
 
   if (window.Telegram?.WebApp) {
     const tg = window.Telegram.WebApp;
     try {
+      // Логируем информацию о Telegram WebApp
+      console.log("Telegram WebApp version:", tg.version);
+      console.log("User data:", tg.initDataUnsafe?.user);
+      console.log("Compressed dataUrl length:", compressedDataUrl.length);
+
       // Формируем сообщение
       const shareText = `Check out my Crypto Snake profit card! Total Tokens: ${this.tokenAmountExit.textContent}`;
 
       // Проверяем длину compressedDataUrl
       if (compressedDataUrl.length > 4096) {
         console.warn("Compressed dataUrl too large, falling back to clipboard or download");
-        alert("Image is too large to share via Telegram. Copying to clipboard or downloading.");
+        alert("Image is too large to share via Telegram. Trying to copy to clipboard or download.");
         await this.copyImageToClipboard(compressedDataUrl);
       } else {
         // Отправляем через Telegram share URL
@@ -293,20 +300,28 @@ async compressImage(dataUrl, quality, maxWidth, maxHeight) {
 
 // Вспомогательная функция для копирования изображения в буфер обмена
 async copyImageToClipboard(dataUrl) {
+  console.log("Attempting to copy image to clipboard");
   try {
+    // Проверяем поддержку Clipboard API
+    if (!navigator.clipboard || !window.ClipboardItem) {
+      throw new Error("Clipboard API or ClipboardItem not supported");
+    }
     const blob = this.dataURLtoBlob(dataUrl);
     await navigator.clipboard.write([
       new ClipboardItem({ "image/png": blob }),
     ]);
-    console.log("Profit card copied to clipboard");
+    console.log("Profit card copied to clipboard successfully");
     alert("Profit card copied to clipboard! Paste it in any app (e.g., Telegram, Discord).");
   } catch (error) {
     console.error("Error copying to clipboard:", error);
     // Запасной вариант: скачать изображение
+    console.log("Falling back to download");
     const link = document.createElement("a");
     link.href = dataUrl;
     link.download = "profit-card.png";
+    document.body.appendChild(link); // Добавляем в DOM для мобильных устройств
     link.click();
+    document.body.removeChild(link); // Удаляем после клика
     console.log("Profit card downloaded as profit-card.png");
     alert("Failed to copy to clipboard. Image downloaded as profit-card.png.");
   }
