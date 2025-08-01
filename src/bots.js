@@ -61,6 +61,22 @@ function slitherLerpAngle(currentAngle, targetAngle, mass, delta) {
   return ((currentAngle + lerpedDiff) % twoPi + twoPi) % twoPi;
 }
 
+function hexToRgb(hex) {
+  const r = (hex >> 16) & 255;
+  const g = (hex >> 8) & 255;
+  const b = hex & 255;
+  return { r, g, b };
+}
+
+function interpolateColor(color1, color2, factor) {
+  // Гарантируем, что factor в [0, 1] и RGB в [0, 255]
+  factor = Math.max(0, Math.min(1, factor));
+  const r = Math.round(Math.max(0, Math.min(255, color1.r + (color2.r - color1.r) * factor)));
+  const g = Math.round(Math.max(0, Math.min(255, color1.g + (color2.g - color1.g) * factor)));
+  const b = Math.round(Math.max(0, Math.min(255, color1.b + (color2.b - color1.b) * factor)));
+  return (r << 16) | (g << 8) | b;
+}
+
 export class BotSnake {
   constructor(gameWorld, textures, mass, startX, startY, foodManager, color, playerHead, app) {
     this.gameWorld = gameWorld;
@@ -82,6 +98,10 @@ export class BotSnake {
     this.playerHead = playerHead;
     this.foodManager = foodManager;
     this.app = app;
+    this.isInvincible = true; // Неуязвимость при спавне
+    this.invincibleTimer = 10; // 10 секунд
+    this.invincibleBlinkTimer = 0;
+    this.invincibleText = null;
 
     const texturePath = `assets/eye-area-${this.getColorName(color)}.png`;
     this.head = new PIXI.Sprite(textures[texturePath] || textures["assets/snake-head.png"]);
@@ -101,6 +121,37 @@ export class BotSnake {
     this.bodyGraphics = new PIXI.Graphics();
     this.bodyGraphics.zIndex = 0;
     gameWorld.addChild(this.bodyGraphics);
+
+    const initialSegmentCount = Math.floor(GAME_CONSTANTS.SNAKE_GROWTH.LENGTH_BASE / (width * GAME_CONSTANTS.SNAKE_GROWTH.SEGMENT_SPACING));
+    for (let i = 0; i < initialSegmentCount; i++) {
+      this.segments.push({
+        x: startX,
+        y: startY + i * width * GAME_CONSTANTS.SNAKE_GROWTH.SEGMENT_SPACING,
+        width: width,
+      });
+    }
+
+    this.createInvincibleText();
+  }
+
+  createInvincibleText() {
+    this.invincibleText = new PIXI.Text("Safe Start: 10", {
+      fontFamily: "AntonSC",
+      fontSize: 18,
+      fill: ["#33CCFF", "#0099CC"],
+      stroke: "#000000",
+      strokeThickness: 2,
+      dropShadow: true,
+      dropShadowColor: "#1eff00",
+      dropShadowBlur: 4,
+      dropShadowDistance: 2,
+    });
+    this.invincibleText.anchor.set(0.5);
+    this.invincibleText.x = this.head.x;
+    this.invincibleText.y = this.head.y - 50;
+    this.invincibleText.zIndex = 2;
+    this.gameWorld.addChild(this.invincibleText);
+    console.log(`Safe Start text created for bot at (${this.head.x}, ${this.head.y})`);
   }
 
   getColorName(color) {
@@ -238,9 +289,73 @@ export class BotSnake {
     }
   }
 
+  // Новая функция для избегания других ботов
+  avoidOtherBots(bots) {
+    let closestBot = null;
+    let minDistance = Infinity;
+    for (const otherBot of bots) {
+      if (otherBot === this || !otherBot.alive) continue;
+      const dx = this.head.x - otherBot.head.x;
+      const dy = this.head.y - otherBot.head.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      if (distance < minDistance && distance < 200) { // Порог избегания: 200 пикселей
+        minDistance = distance;
+        closestBot = otherBot;
+      }
+    }
+    if (closestBot) {
+      const dx = this.head.x - closestBot.head.x;
+      const dy = this.head.y - closestBot.head.y;
+      const avoidanceAngle = Math.atan2(dy, dx) + Math.PI; // Поворачиваем в противоположную сторону
+      const avoidanceFactor = Math.max(0, (200 - minDistance) / 200); // Сила избегания возрастает при сближении
+      this.targetAngle = slitherLerpAngle(this.targetAngle, avoidanceAngle, this.mass, 0.1 * avoidanceFactor);
+    }
+  }
+
   update(delta, foodManager, bots, playerSegments) {
     if (!this.alive) return;
 
+    // Обновление неуязвимости
+    this.invincibleBlinkTimer += delta / 60;
+    this.invincibleTimer -= delta / 60;
+    if (this.invincibleTimer <= 0 && this.isInvincible) {
+      this.isInvincible = false;
+      if (this.invincibleText) {
+        this.gameWorld.removeChild(this.invincibleText);
+        this.invincibleText.destroy();
+        this.invincibleText = null;
+        console.log("Safe Start text removed for bot");
+      }
+    }
+
+    // Мерцание всей змейки белым
+    if (this.isInvincible) {
+      const blinkFrequency = 2 + (10 - this.invincibleTimer) * 0.2; // Частота от 2 до ~4 Гц
+      const tintFactor = 0.3 + 0.7 * Math.sin(blinkFrequency * Math.PI * this.invincibleBlinkTimer); // От 0.3 до 1
+      const baseColor = hexToRgb(this.color || 0xFFFFFF); // Запасной белый цвет
+      const white = { r: 255, g: 255, b: 255 };
+      const tintedColor = interpolateColor(baseColor, white, tintFactor);
+      this.head.tint = tintedColor;
+      this.bodyGraphics.tint = tintedColor;
+      this.glowGraphics.tint = tintedColor;
+      this.head.alpha = 1;
+      this.bodyGraphics.alpha = 1;
+      this.glowGraphics.alpha = 1;
+      if (this.invincibleText) {
+        this.invincibleText.text = `Safe Start: ${Math.ceil(this.invincibleTimer)}`;
+        this.invincibleText.x = this.head.x;
+        this.invincibleText.y = this.head.y - 50;
+      }
+    } else {
+      this.head.tint = 0xFFFFFF;
+      this.bodyGraphics.tint = 0xFFFFFF;
+      this.glowGraphics.tint = 0xFFFFFF;
+      this.head.alpha = 1;
+      this.bodyGraphics.alpha = 1;
+      this.glowGraphics.alpha = 1;
+    }
+
+    // Логика буста
     if (this.isBoosting && !this.wasBoosting && this.mass > 11 && this.targetMass > 11) {
       const initialMassLoss = Math.min(this.mass * 0.01, 5);
       this.targetMass = Math.max(10, this.targetMass - initialMassLoss);
@@ -260,34 +375,43 @@ export class BotSnake {
       }
     }
 
-    const nearestFood = foodManager.foodItems
-      .filter(food => !food.isConsumed)
-      .reduce((closest, food) => {
-        const dx = food.x - this.head.x;
-        const dy = food.y - this.head.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        if (!closest || distance < closest.distance) {
-          return { food, distance };
-        }
-        return closest;
-      }, null);
-
-    if (nearestFood && nearestFood.distance < 300) {
-      const dx = nearestFood.food.x - this.head.x;
-      const dy = nearestFood.food.y - this.head.y;
-      this.targetAngle = Math.atan2(dy, dx);
+    // Логика движения
+    if (this.isInvincible) {
+      // Случайное блуждание в безопасном режиме
+      this.targetAngle += (Math.random() - 0.5) * 0.5; // Более выраженное изменение угла
+      this.avoidOtherBots(bots); // Избегаем других ботов
+      this.isBoosting = false; // Отключаем буст в безопасном режиме
     } else {
-      const dx = this.playerHead.x - this.head.x;
-      const dy = this.playerHead.y - this.head.y;
-      const distanceToPlayer = Math.sqrt(dx * dx + dy * dy);
-      if (distanceToPlayer < 200 && this.mass < 100) {
-        this.targetAngle = Math.atan2(dy, dx) + Math.PI;
-      } else {
-        this.targetAngle += (Math.random() - 0.5) * 0.1;
-      }
-    }
+      // Обычная логика движения
+      const nearestFood = foodManager.foodItems
+        .filter(food => !food.isConsumed)
+        .reduce((closest, food) => {
+          const dx = food.x - this.head.x;
+          const dy = food.y - this.head.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          if (!closest || distance < closest.distance) {
+            return { food, distance };
+          }
+          return closest;
+        }, null);
 
-    this.isBoosting = nearestFood && nearestFood.distance < 100 && this.mass > 11 && Math.random() < 0.02;
+      if (nearestFood && nearestFood.distance < 300) {
+        const dx = nearestFood.food.x - this.head.x;
+        const dy = nearestFood.food.y - this.head.y;
+        this.targetAngle = Math.atan2(dy, dx);
+      } else {
+        const dx = this.playerHead.x - this.head.x;
+        const dy = this.playerHead.y - this.head.y;
+        const distanceToPlayer = Math.sqrt(dx * dx + dy * dy);
+        if (distanceToPlayer < 200 && this.mass < 100) {
+          this.targetAngle = Math.atan2(dy, dx) + Math.PI; // Убегать от игрока
+        } else {
+          this.targetAngle += (Math.random() - 0.5) * 0.1; // Случайное блуждание
+        }
+      }
+
+      this.isBoosting = nearestFood && nearestFood.distance < 100 && this.mass > 11 && Math.random() < 0.02;
+    }
 
     this.currentAngle = slitherLerpAngle(this.currentAngle, this.targetAngle, this.mass, delta);
     const speed = calculateSpeed(this.mass, this.isBoosting);
@@ -319,6 +443,7 @@ export class BotSnake {
     }
     this.glowUpdateCounter++;
 
+    // Обработка еды
     foodManager.foodItems = foodManager.foodItems.filter(food => {
       if (!food || food.isConsumed) {
         return false;
@@ -374,40 +499,53 @@ export class BotSnake {
       return true;
     });
 
-    for (const otherBot of bots) {
-      if (otherBot === this || !otherBot.alive) continue;
-      for (let i = 0; i < otherBot.segments.length; i++) {
-        const seg = otherBot.segments[i];
+    // Проверка столкновений (только если не неуязвим)
+    if (!this.isInvincible) {
+      for (const otherBot of bots) {
+        if (otherBot === this || !otherBot.alive || otherBot.isInvincible) continue;
+        for (let i = 0; i < otherBot.segments.length; i++) {
+          const seg = otherBot.segments[i];
+          const dist = Math.hypot(this.head.x - seg.x, this.head.y - seg.y);
+          if (dist < this.head.width / 2 + seg.width / 2) {
+            this.alive = false;
+            foodManager.createDebrisFromSnake(this.mass, this.segments);
+            foodManager.createTonFromSnake(this.mass, this.segments);
+            this.gameWorld.removeChild(this.head);
+            this.gameWorld.removeChild(this.bodyGraphics);
+            this.gameWorld.removeChild(this.glowGraphics);
+            if (this.invincibleText) {
+              this.gameWorld.removeChild(this.invincibleText);
+              this.invincibleText.destroy();
+            }
+            this.head.destroy();
+            this.bodyGraphics.destroy();
+            this.glowGraphics.destroy();
+            console.log(`Bot died due to collision with another bot at segment ${i}`);
+            return;
+          }
+        }
+      }
+
+      for (let i = 0; i < playerSegments.length; i++) {
+        const seg = playerSegments[i];
         const dist = Math.hypot(this.head.x - seg.x, this.head.y - seg.y);
-        if (dist < this.head.width / 2 + seg.width / 2) {
+        if (dist < this.head.width / 2 + seg.width / 2 && !playerSegments[0].isInvincible) {
           this.alive = false;
           foodManager.createDebrisFromSnake(this.mass, this.segments);
           foodManager.createTonFromSnake(this.mass, this.segments);
           this.gameWorld.removeChild(this.head);
           this.gameWorld.removeChild(this.bodyGraphics);
           this.gameWorld.removeChild(this.glowGraphics);
+          if (this.invincibleText) {
+            this.gameWorld.removeChild(this.invincibleText);
+            this.invincibleText.destroy();
+          }
           this.head.destroy();
           this.bodyGraphics.destroy();
           this.glowGraphics.destroy();
+          console.log(`Bot died due to collision with player at segment ${i}`);
           return;
         }
-      }
-    }
-
-    for (let i = 0; i < playerSegments.length; i++) {
-      const seg = playerSegments[i];
-      const dist = Math.hypot(this.head.x - seg.x, this.head.y - seg.y);
-      if (dist < this.head.width / 2 + seg.width / 2) {
-        this.alive = false;
-        foodManager.createDebrisFromSnake(this.mass, this.segments);
-        foodManager.createTonFromSnake(this.mass, this.segments);
-        this.gameWorld.removeChild(this.head);
-        this.gameWorld.removeChild(this.bodyGraphics);
-        this.gameWorld.removeChild(this.glowGraphics);
-        this.head.destroy();
-        this.bodyGraphics.destroy();
-        this.glowGraphics.destroy();
-        return;
       }
     }
   }

@@ -27,6 +27,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   gameContainer.appendChild(app.view);
   app.stage.interactive = true;
   app.stage.hitArea = new PIXI.Rectangle(0, 0, app.screen.width, app.screen.height);
+  app.stage.sortableChildren = true;
   console.log("PIXI приложение создано, canvas добавлен в #game-container");
 
   const colorToTextureMap = {
@@ -125,7 +126,50 @@ window.addEventListener("DOMContentLoaded", async () => {
   let growthLerp = 1;
   let wasBoosting = false;
   let glowUpdateCounter = 0;
-  let initialSafeFrames = 60;
+  let isInvincible = true; // Неуязвимость игрока
+  let invincibleTimer = 10; // 10 секунд неуязвимости
+  let invincibleBlinkTimer = 0;
+  let invincibleText = null;
+
+  // Создаем надпись "Invincible"
+  function createInvincibleText() {
+    invincibleText = new PIXI.Text("SAFE START: 10", {
+      fontFamily: "AntonSC",
+      fontSize: 18,
+      fill: ["#33CCFF", "#0099CC"], // Градиент в стиле крипто
+      stroke: "#000000",
+      strokeThickness: 2,
+      dropShadow: true,
+      dropShadowColor: "#1eff00",
+      dropShadowBlur: 4,
+      dropShadowDistance: 2,
+    });
+    invincibleText.anchor.set(0.5);
+    invincibleText.x = snakeHead.x;
+    invincibleText.y = snakeHead.y - 50;
+    invincibleText.zIndex = 2;
+    gameWorld.addChild(invincibleText);
+    console.log("Invincible text created for player");
+  }
+
+  // Проверяем валидность позиции спавна
+  function isValidSpawnPosition(x, y, minDistance, snakes) {
+    for (const snake of snakes) {
+      if (!snake.alive) continue;
+      const dx = x - snake.head.x;
+      const dy = y - snake.head.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      if (distance < minDistance) return false;
+      for (const seg of snake.segments) {
+        const segDist = Math.sqrt((x - seg.x) ** 2 + (y - seg.y) ** 2);
+        if (segDist < minDistance) return false;
+      }
+    }
+    const dxCenter = x - GAME_CONSTANTS.WORLD_CENTER.x;
+    const dyCenter = y - GAME_CONSTANTS.WORLD_CENTER.y;
+    const distCenter = Math.sqrt(dxCenter * dxCenter + dyCenter * dyCenter);
+    return distCenter <= GAME_CONSTANTS.WORLD_RADIUS * 0.8;
+  }
 
   const initialSegmentCount = Math.floor(GAME_CONSTANTS.SNAKE_GROWTH.LENGTH_BASE / (initialWidth * GAME_CONSTANTS.SNAKE_GROWTH.SEGMENT_SPACING));
   for (let i = 0; i < initialSegmentCount; i++) {
@@ -142,7 +186,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     GAME_CONSTANTS.WORLD_RADIUS,
     textures["assets/token-food.png"],
     textures["assets/ton.png"],
-    [{ head: snakeHead, alive: true }, ...bots]
+    [{ head: snakeHead, alive: true, isInvincible: true, segments: snakeSegments }, ...bots]
   );
   foodManager.initialize();
   console.log("FoodManager инициализирован");
@@ -155,7 +199,6 @@ window.addEventListener("DOMContentLoaded", async () => {
   }, foodManager, bots);
   console.log("UIManager инициализирован");
 
-  // Добавляем обработку буста через мышь на десктопе
   if (!uiManager.isMobile) {
     app.stage.on("mousedown", () => {
       if (snakeMass > 11) {
@@ -177,7 +220,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     const maxDistance = 1000;
     let startX, startY;
     let attempts = 0;
-    const maxAttempts = 10;
+    const maxAttempts = 20;
     let isValidPosition = false;
 
     do {
@@ -194,15 +237,15 @@ window.addEventListener("DOMContentLoaded", async () => {
         startX = GAME_CONSTANTS.WORLD_CENTER.x + Math.cos(angleToCenter) * maxDist;
         startY = GAME_CONSTANTS.WORLD_CENTER.y + Math.sin(angleToCenter) * maxDist;
       }
-      const dxPlayer = startX - snakeHead.x;
-      const dyPlayer = startY - snakeHead.y;
-      const distToPlayer = Math.sqrt(dxPlayer * dxPlayer + dyPlayer * dyPlayer);
-      isValidPosition = distToPlayer >= minDistance;
+      isValidPosition = isValidSpawnPosition(startX, startY, minDistance, [
+        { head: snakeHead, alive: true, segments: snakeSegments },
+        ...bots,
+      ]);
       attempts++;
     } while (!isValidPosition && attempts < maxAttempts);
 
     if (!isValidPosition) {
-      console.warn("Не удалось найти подходящую позицию для бота, используется запасная");
+      console.warn("Не удалось найти идеальную позицию для бота, используется запасная");
       startX = GAME_CONSTANTS.WORLD_CENTER.x + (Math.random() - 0.5) * GAME_CONSTANTS.WORLD_RADIUS * 0.5;
       startY = GAME_CONSTANTS.WORLD_CENTER.y + (Math.random() - 0.5) * GAME_CONSTANTS.WORLD_RADIUS * 0.5;
     }
@@ -218,6 +261,9 @@ window.addEventListener("DOMContentLoaded", async () => {
     createBot();
   }
   console.log(`Создано ботов: ${bots.length}`);
+
+  createInvincibleText(); // Инициализируем надпись для игрока
+  foodManager.updateSnakes([{ head: snakeHead, alive: true, isInvincible: true, segments: snakeSegments }, ...bots]);
 
   uiManager.updateTokens(Math.floor(snakeMass), false);
 
@@ -274,28 +320,37 @@ window.addEventListener("DOMContentLoaded", async () => {
     const baseSegmentDistance = width * GAME_CONSTANTS.SNAKE_GROWTH.SEGMENT_SPACING;
     const segmentDistance = baseSegmentDistance;
     const maxSegments = Math.floor(length / segmentDistance);
+    const speed = calculateSpeed(snakeMass, canBoost);
+
     snakeSegments.unshift({
       x: snakeHead.x,
       y: snakeHead.y,
       width: width,
     });
+
     for (let i = 1; i < snakeSegments.length; i++) {
       const current = snakeSegments[i];
       const previous = snakeSegments[i - 1];
       const dx = current.x - previous.x;
       const dy = current.y - previous.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
+
       if (distance > segmentDistance) {
         const angle = Math.atan2(dy, dx);
-        current.x = previous.x + Math.cos(angle) * segmentDistance;
-        current.y = previous.y + Math.sin(angle) * segmentDistance;
+        const targetX = previous.x + Math.cos(angle) * segmentDistance;
+        const targetY = previous.y + Math.sin(angle) * segmentDistance;
+        const lerpFactor = canBoost ? 0.5 : 0.3;
+        current.x += (targetX - current.x) * lerpFactor * (speed / GAME_CONSTANTS.BASE_SPEED);
+        current.y += (targetY - current.y) * lerpFactor * (speed / GAME_CONSTANTS.BASE_SPEED);
       }
       current.width = width;
     }
+
     if (snakeSegments.length > maxSegments) {
       snakeSegments.splice(maxSegments);
     }
-    console.log("Сегменты змейки обновлены, количество:", snakeSegments.length);
+
+    console.log("Сегменты змейки обновлены, количество:", snakeSegments.length, "canBoost:", canBoost);
     return { width, segmentDistance };
   }
 
@@ -510,14 +565,17 @@ window.addEventListener("DOMContentLoaded", async () => {
           gameWorld.removeChild(snakeHead);
           gameWorld.removeChild(snakeBodyGraphics);
           gameWorld.removeChild(bodyGlowGraphics);
+          if (invincibleText) {
+            gameWorld.removeChild(invincibleText);
+            invincibleText.destroy();
+          }
           snakeHead.destroy();
           snakeBodyGraphics.destroy();
           bodyGlowGraphics.destroy();
           app.ticker.remove(animate);
 
-          // Show game over screen
           const gameOverScreen = document.getElementById("game-over-screen");
-          const gameOverBalance = document.querySelector("#game-over-screen .balance-amount");
+          const gameOverBalance = document.querySelector("#game-over-screen .balance-amount-gameover");
           if (gameOverScreen && gameOverBalance) {
             gameOverBalance.textContent = `${uiManager.tonBalance.toFixed(2)} TON`;
             gameOverScreen.style.display = "flex";
@@ -525,7 +583,6 @@ window.addEventListener("DOMContentLoaded", async () => {
             console.error("Game over screen or balance element not found!");
           }
 
-          // Add event listeners for buttons
           const playAgainBtn = document.getElementById("play-again-btn");
           const exitMenuBtn = document.getElementById("exit-menu-btn");
           if (playAgainBtn) {
@@ -544,12 +601,15 @@ window.addEventListener("DOMContentLoaded", async () => {
         gameWorld.removeChild(snakeHead);
         gameWorld.removeChild(snakeBodyGraphics);
         gameWorld.removeChild(bodyGlowGraphics);
+        if (invincibleText) {
+          gameWorld.removeChild(invincibleText);
+          invincibleText.destroy();
+        }
         snakeHead.destroy();
         snakeBodyGraphics.destroy();
         bodyGlowGraphics.destroy();
         app.ticker.remove(animate);
 
-        // Show game over screen even in case of error
         const gameOverScreen = document.getElementById("game-over-screen");
         const gameOverBalance = document.querySelector("#game-over-screen .balance-amount");
         if (gameOverScreen && gameOverBalance) {
@@ -559,7 +619,6 @@ window.addEventListener("DOMContentLoaded", async () => {
           console.error("Game over screen or balance element not found!");
         }
 
-        // Add event listeners for buttons
         const playAgainBtn = document.getElementById("play-again-btn");
         const exitMenuBtn = document.getElementById("exit-menu-btn");
         if (playAgainBtn) {
@@ -604,6 +663,43 @@ window.addEventListener("DOMContentLoaded", async () => {
   }
 
   app.ticker.add((delta) => {
+  // Обновление неуязвимости
+  invincibleBlinkTimer += delta / 60;
+  invincibleTimer -= delta / 60;
+  if (invincibleTimer <= 0 && isInvincible) {
+    isInvincible = false;
+    if (invincibleText) {
+      gameWorld.removeChild(invincibleText);
+      invincibleText.destroy();
+      invincibleText = null;
+      console.log("Invincible text removed for player");
+    }
+  }
+
+  if (isInvincible) {
+    const blinkFrequency = 2 + (10 - invincibleTimer) * 0.2; // Частота от 2 до ~4 Гц
+    const tintFactor = 0.5 + 0.5 * Math.sin(blinkFrequency * Math.PI * invincibleBlinkTimer); // От 0.5 до 1
+    const baseColor = hexToRgb(GAME_CONSTANTS.BODY_COLOR); // Базовый цвет змейки
+    const white = { r: 255, g: 255, b: 255 };
+    const tintedColor = interpolateColor(baseColor, white, tintFactor); // Интерполяция между базовым цветом и белым
+    snakeHead.tint = tintedColor;
+    snakeBodyGraphics.tint = tintedColor;
+    bodyGlowGraphics.tint = tintedColor;
+    snakeHead.alpha = 1; // Полная непрозрачность
+    snakeBodyGraphics.alpha = 1;
+    bodyGlowGraphics.alpha = 1;
+    invincibleText.text = `Safe Start: ${Math.ceil(invincibleTimer)}`;
+    invincibleText.x = snakeHead.x;
+    invincibleText.y = snakeHead.y - 50;
+  } else {
+    snakeHead.tint = 0xFFFFFF; // Сбрасываем tint (белый = без изменений)
+    snakeBodyGraphics.tint = 0xFFFFFF;
+    bodyGlowGraphics.tint = 0xFFFFFF;
+    snakeHead.alpha = 1;
+    snakeBodyGraphics.alpha = 1;
+    bodyGlowGraphics.alpha = 1;
+  }
+
     if (uiManager.isBoosting && !wasBoosting && snakeMass > 11 && targetMass > 11) {
       const initialMassLoss = Math.min(snakeMass * 0.01, 5);
       targetMass = Math.max(10, targetMass - initialMassLoss);
@@ -660,14 +756,23 @@ window.addEventListener("DOMContentLoaded", async () => {
       const foodSize = food.size || 10;
       const distanceToHead = Math.hypot(food.x - faceX, food.y - faceY);
       const collisionThreshold = (snakeHead.width / 2) + (foodSize / 2);
+
       if (distanceToHead < collisionThreshold || distanceToHead < snakeHead.width) {
+        console.log(`=== ПОЕДАНИЕ ЕДЫ ===`);
+        console.log(`ID: ${food.id}`);
+        console.log(`Тип: ${food.type}`);
+        console.log(`Очки: ${food.points}`);
+        console.log(`Текущий баланс TON ДО: ${uiManager.tonBalance}`);
+
         if (food.type === "ton") {
+          console.log(`🪙 Обрабатываем TON еду!`);
           uiManager.addTon(food.points);
+          console.log(`Баланс TON ПОСЛЕ: ${uiManager.tonBalance}`);
         } else {
           const points = food.type === "boost" ? (snakeMass > 100 ? 0.05 : 0.1) : food.points;
           targetMass += points;
-          uiManager.updateTokens(snakeMass + points, false);
         }
+
         animateFoodConsumption(food, () => {
           if (food.type !== "boost" && food.type !== "ton") {
             foodManager.createFood();
@@ -723,7 +828,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     } else {
       orbSpawnTimer = 0;
     }
-    foodManager.updateSnakes([{ head: snakeHead, alive: true }, ...bots.filter(bot => bot.alive)]);
+    foodManager.updateSnakes([{ head: snakeHead, alive: true, isInvincible, segments: snakeSegments }, ...bots.filter(bot => bot.alive)]);
     bots.forEach((bot, index) => {
       if (bot.alive) {
         bot.update(delta, foodManager, bots, snakeSegments);
@@ -733,12 +838,10 @@ window.addEventListener("DOMContentLoaded", async () => {
     while (bots.length < GAME_CONSTANTS.BOT_COUNT) {
       createBot();
     }
-    if (initialSafeFrames > 0) {
-      initialSafeFrames--;
-      console.log(`Пропуск проверки столкновений, осталось кадров: ${initialSafeFrames}`);
-    } else {
+    if (!isInvincible) {
       let playerDead = false;
       for (const bot of bots) {
+        if (bot.isInvincible) continue;
         for (let i = 0; i < bot.segments.length; i++) {
           const seg = bot.segments[i];
           const dist = Math.hypot(snakeHead.x - seg.x, snakeHead.y - seg.y);
@@ -758,6 +861,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     foodManager.update(delta, snakeHead);
     updateCamera(delta);
     uiManager.updateMinimap();
+    app.stage.sortChildren();
   });
 
   function calculateSpeed(mass, isBoosting) {

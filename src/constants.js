@@ -90,13 +90,15 @@ export const GAME_CONSTANTS = {
     small: 0.08,
     large: 0.05
   },
+
+  
   
   SNAKE_GROWTH: {
-    LENGTH_BASE: 10,
-    LENGTH_MULTIPLIER: 6,
+    LENGTH_BASE: 5,
+    LENGTH_MULTIPLIER: 3,
     WIDTH_BASE: 15,
     WIDTH_MULTIPLIER: 0.6,
-    SEGMENT_SPACING: 0.7,
+    SEGMENT_SPACING: 0.4,
     TAIL_TAPER: 0.3,
   },
 

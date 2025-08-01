@@ -19,8 +19,9 @@ export class UIManager {
     this.setMassCallback = setMassCallback;
     this.targetAngle = -Math.PI / 2;
 
+    // Initialize DOM elements
     this.tokenDisplay = document.querySelector(".token-amount");
-    this.balanceDisplay = document.querySelector(".balance-amount");
+    this.balanceDisplay = null; // Initialize as null
     this.exitButton = document.getElementById("exit-btn");
     this.quickExitButton = document.getElementById("quick-exit-btn");
     this.boostButton = document.getElementById("boost-btn");
@@ -31,47 +32,112 @@ export class UIManager {
     this.devButton = null;
     this.devResetButton = null;
 
+    // Initialize balance display
+    this.initializeBalanceDisplay();
+
     this.initMinimap();
     this.initJoystick();
     this.initEventListeners();
     this.initDevUI();
     this.handleResize();
     window.addEventListener("resize", () => this.handleResize());
-    window.addEventListener("orientationchange", () => this.updateMinimapPosition()); // Добавляем обработчик ориентации
+    window.addEventListener("orientationchange", () => this.updateMinimapPosition());
+  }
 
-    this.updateBalanceDisplay();
+  initializeBalanceDisplay() {
+    this.balanceDisplay = document.querySelector(".balance-amount");
+    if (!this.balanceDisplay) {
+      console.warn("Balance display (.balance-amount) not found during initialization");
+      window.addEventListener("DOMContentLoaded", () => {
+        this.balanceDisplay = document.querySelector(".balance-amount");
+        if (this.balanceDisplay) {
+          console.log("Balance display initialized on DOMContentLoaded");
+          this.updateBalanceDisplay();
+        } else {
+          console.error("Failed to find .balance-amount even after DOMContentLoaded");
+        }
+      }, { once: true });
+    } else {
+      console.log("Balance display initialized");
+      this.updateBalanceDisplay();
+    }
   }
 
   addTon(amount) {
-    this.tonBalance += amount;
-    this.updateBalanceDisplay();
-    console.log(`Добавлено ${amount} TON. Новый баланс: ${this.tonBalance.toFixed(2)} TON`);
+  console.log(`🪙 addTon вызван с amount: ${amount}`);
+  console.log(`🪙 Баланс ДО: ${this.tonBalance}`);
+  
+  this.tonBalance += amount;
+  
+  console.log(`🪙 Баланс ПОСЛЕ: ${this.tonBalance}`);
+  console.log(`🪙 Элемент balanceDisplay:`, this.balanceDisplay);
+  
+  // Принудительное обновление
+  if (this.balanceDisplay) {
+    const newText = `${this.tonBalance.toFixed(2)} TON`;
+    this.balanceDisplay.textContent = newText;
+    console.log(`🪙 UI обновлен на: ${newText}`);
+  } else {
+    console.error(`🪙 ОШИБКА: balanceDisplay не найден!`);
   }
+  
+  // Дополнительная проверка через querySelector
+  const directElement = document.querySelector('.balance-amount');
+  if (directElement) {
+    directElement.textContent = `${this.tonBalance.toFixed(2)} TON`;
+    console.log(`🪙 Прямое обновление через querySelector выполнено`);
+  }
+}
+
 
   updateBalanceDisplay() {
+  console.log(`🪙 updateBalanceDisplay вызван, баланс: ${this.tonBalance}`);
+  
+  if (this.balanceDisplay) {
+    const formattedBalance = this.tonBalance.toFixed(2);
+    this.balanceDisplay.textContent = `${formattedBalance} TON`;
+    console.log(`🪙 updateBalanceDisplay: установлен текст "${formattedBalance} TON"`);
+  } else {
+    console.error("🪙 updateBalanceDisplay: balanceDisplay элемент не найден!");
+    
+    // Попытка найти элемент заново
+    this.balanceDisplay = document.querySelector(".balance-amount");
     if (this.balanceDisplay) {
-      this.balanceDisplay.textContent = `${this.tonBalance.toFixed(2)} TON`;
+      const formattedBalance = this.tonBalance.toFixed(2);
+      this.balanceDisplay.textContent = `${formattedBalance} TON`;
+      console.log(`🪙 Элемент найден заново и обновлен: ${formattedBalance} TON`);
     }
+  }
+}
+
+
+  refreshBalanceDisplay() {
+    if (!this.balanceDisplay) {
+      this.initializeBalanceDisplay();
+    }
+    this.updateBalanceDisplay();
   }
 
   updateTokens(newTokenValue, allowProfit = false) {
     this.tokens = Math.max(0, newTokenValue);
     if (this.tokenDisplay) {
       this.tokenDisplay.textContent = Math.floor(this.tokens).toString();
+    } else {
+      console.warn("Token display not available");
     }
     if (this.boostButton) {
       this.boostButton.style.opacity = this.tokens > 11 ? "1" : "0.5";
       this.boostButton.style.pointerEvents = this.tokens > 11 ? "auto" : "none";
       this.boostButton.disabled = this.tokens <= 11;
     }
-    console.log(`Токены обновлены: ${Math.floor(this.tokens)}`);
+    console.log(`Tokens updated: ${Math.floor(this.tokens)}`);
   }
 
   initMinimap() {
     this.minimapCanvas = document.getElementById("minimap");
 
     if (!(this.minimapCanvas instanceof HTMLCanvasElement)) {
-      console.warn("Элемент #minimap не является canvas, создаём новый");
+      console.warn("Element #minimap is not a canvas, creating new");
       if (this.minimapCanvas) {
         this.minimapCanvas.remove();
       }
@@ -81,37 +147,35 @@ export class UIManager {
       document.body.appendChild(this.minimapCanvas);
     }
 
-    this.minimapCanvas.width = 150; // Внутреннее разрешение
+    this.minimapCanvas.width = 150;
     this.minimapCanvas.height = 150;
 
     try {
       this.minimapCtx = this.minimapCanvas.getContext("2d");
       if (!this.minimapCtx) {
-        console.error("Не удалось получить 2D контекст для миникарты");
+        console.error("Failed to get 2D context for minimap");
         return;
       }
     } catch (error) {
-      console.error(`Ошибка инициализации контекста миникарты: ${error}`);
+      console.error(`Error initializing minimap context: ${error}`);
       return;
     }
 
-    // Устанавливаем только минимальные стили
     this.minimapCanvas.style.position = "fixed";
     this.minimapCanvas.style.zIndex = "100";
 
     this.updateMinimapPosition();
-
-    console.log("Миникарта инициализирована");
+    console.log("Minimap initialized");
   }
 
   updateMinimapPosition() {
     if (!this.minimapCanvas) return;
-    console.log(`Обновление миникарты: полагаемся на CSS, ширина экрана=${window.innerWidth}, isMobile=${this.isMobile}`);
+    console.log(`Updating minimap position: relying on CSS, screen width=${window.innerWidth}, isMobile=${this.isMobile}`);
   }
 
   updateMinimap() {
     if (!this.minimapCtx) {
-      console.warn("Контекст миникарты недоступен, пропуск обновления");
+      console.warn("Minimap context unavailable, skipping update");
       return;
     }
 
@@ -145,13 +209,12 @@ export class UIManager {
       }
       this.joystickContainer = document.getElementById("joystick");
       if (!this.joystickContainer) {
-        console.warn("Контейнер джойстика не найден, создаём новый");
+        console.warn("Joystick container not found, creating new");
         this.joystickContainer = document.createElement("div");
         this.joystickContainer.id = "joystick";
         document.body.appendChild(this.joystickContainer);
       }
 
-      // Предотвращаем все стандартные события касания в области джойстика
       this.joystickContainer.addEventListener("touchstart", (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -174,7 +237,7 @@ export class UIManager {
           position: { left: "50%", top: "50%" },
           color: "white",
           size: 100,
-          catchDistance: 200, // Увеличиваем радиус захвата касаний
+          catchDistance: 200,
         });
 
         this.joystick.on("move", (evt, data) => {
@@ -186,10 +249,10 @@ export class UIManager {
         });
 
         this.joystick.on("end", () => {
-          // Не меняем угол при отпускании джойстика
+          // Do not change angle on release
         });
       } catch (error) {
-        console.error(`Ошибка инициализации джойстика: ${error}`);
+        console.error(`Error initializing joystick: ${error}`);
       }
     } else {
       if (this.joystick) {
@@ -205,7 +268,7 @@ export class UIManager {
 
   initEventListeners() {
     if (this.boostButton && this.isMobile) {
-      console.log("Кнопка буста найдена, настройка событий для мобильных");
+      console.log("Boost button found, setting up events for mobile");
       this.boostButton.removeEventListener("touchstart", this.handleTouchStart);
       this.boostButton.removeEventListener("touchend", this.handleTouchEnd);
 
@@ -213,24 +276,24 @@ export class UIManager {
         e.preventDefault();
         if (this.tokens > 11) {
           this.isBoosting = true;
-          console.log("Буст активирован через касание");
+          console.log("Boost activated via touch");
         } else {
-          console.log(`Буст не активирован: недостаточно токенов (${this.tokens})`);
+          console.log(`Boost not activated: insufficient tokens (${this.tokens})`);
         }
       };
       this.handleTouchEnd = () => {
         this.isBoosting = false;
-        console.log("Буст деактивирован через окончание касания");
+        console.log("Boost deactivated via touch end");
       };
 
       this.boostButton.addEventListener("touchstart", this.handleTouchStart);
       this.boostButton.addEventListener("touchend", this.handleTouchEnd);
       this.boostButton.disabled = this.tokens <= 11;
     } else if (this.boostButton) {
-      console.log("Кнопка буста найдена, но игнорируется на десктопе");
+      console.log("Boost button found but ignored on desktop");
       this.boostButton.disabled = true;
     } else {
-      console.warn("Кнопка буста не найдена");
+      console.warn("Boost button not found");
     }
 
     if (this.exitButton) {
@@ -238,7 +301,7 @@ export class UIManager {
         if (window.Telegram && window.Telegram.WebApp) {
           window.Telegram.WebApp.close();
         } else {
-          alert("Exit: Баланс сохранён.");
+          alert("Exit: Balance saved.");
           window.location.reload();
         }
       });
@@ -249,7 +312,7 @@ export class UIManager {
         if (window.Telegram && window.Telegram.WebApp) {
           window.Telegram.WebApp.close();
         } else {
-          alert("Quick Exit: Баланс сохранён с 10% штрафом.");
+          alert("Quick Exit: Balance saved with 10% penalty.");
           window.location.reload();
         }
       });

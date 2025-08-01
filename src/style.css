@@ -121,6 +121,11 @@ html, body {
   margin-left: 4px;
 }
 
+.balance-amount-gameover {
+  color: #1eff00;
+  margin-left: 4px;
+}
+
 .exit-buttons {
   position: fixed;
   top: 14vh;
