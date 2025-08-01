@@ -69,7 +69,7 @@
     <div class="loading-content">
       <div id="loading-animation"></div>
       <p class="fallback-text">Animation failed to load</p>
-      <p>Loading 🐍Shhh...</p>
+      <p>Ssslithering into the blockchain…</p>
     </div>
   </div>
   
@@ -254,7 +254,7 @@
         console.log('Starting resource loading');
         Promise.race([
           Promise.all(resources),
-          new Promise(resolve => setTimeout(resolve, 5000))
+          new Promise(resolve => setTimeout(resolve, 6000))
         ]).then(() => {
           console.log('Resources loaded or 5 seconds elapsed');
           const loadingScreen = document.getElementById('loading-screen');
