@@ -149,7 +149,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     invincibleText.y = snakeHead.y - 50;
     invincibleText.zIndex = 2;
     gameWorld.addChild(invincibleText);
-    console.log("Invincible text created for player");
+    //console.log("Invincible text created for player");
   }
 
   // Проверяем валидность позиции спавна
@@ -179,7 +179,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       width: initialWidth,
     });
   }
-  console.log("Сегменты змейки игрока созданы:", snakeSegments.length, "сегментов");
+ //console.log("Сегменты змейки игрока созданы:", snakeSegments.length, "сегментов");
 
   const foodManager = new FoodManager(
     gameWorld,
@@ -189,7 +189,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     [{ head: snakeHead, alive: true, isInvincible: true, segments: snakeSegments }, ...bots]
   );
   foodManager.initialize();
-  console.log("FoodManager инициализирован");
+  //console.log("FoodManager инициализирован");
 
   const uiManager = new UIManager(app, gameWorld, snakeHead, GAME_CONSTANTS.WORLD_RADIUS, (newMass) => {
     targetMass = Math.max(10, newMass);
@@ -197,20 +197,20 @@ window.addEventListener("DOMContentLoaded", async () => {
     uiManager.updateTokens(snakeMass, false);
     growthLerp = 0;
   }, foodManager, bots);
-  console.log("UIManager инициализирован");
+  //console.log("UIManager инициализирован");
 
   if (!uiManager.isMobile) {
     app.stage.on("mousedown", () => {
       if (snakeMass > 11) {
         uiManager.isBoosting = true;
-        console.log("Буст активирован через нажатие мыши");
+        //console.log("Буст активирован через нажатие мыши");
       } else {
-        console.log("Буст не активирован: недостаточно массы", snakeMass);
+        //console.log("Буст не активирован: недостаточно массы", snakeMass);
       }
     });
     app.stage.on("mouseup", () => {
       uiManager.isBoosting = false;
-      console.log("Буст деактивирован через отпускание мыши");
+      //console.log("Буст деактивирован через отпускание мыши");
     });
   }
 
@@ -252,7 +252,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     const color = GAME_CONSTANTS.BOT_COLORS[Math.floor(Math.random() * GAME_CONSTANTS.BOT_COLORS.length)];
     const headTexturePath = colorToTextureMap[`0x${color.toString(16).padStart(6, "0")}`] || "assets/snake-head.png";
-    console.log(`Создаём бота: масса=${mass}, позиция=(${startX}, ${startY}), цвет=0x${color.toString(16).padStart(6, "0")}, текстура=${headTexturePath}`);
+    //console.log(`Создаём бота: масса=${mass}, позиция=(${startX}, ${startY}), цвет=0x${color.toString(16).padStart(6, "0")}, текстура=${headTexturePath}`);
     const bot = new BotSnake(gameWorld, textures, mass, startX, startY, foodManager, color, snakeHead, app);
     bots.push(bot);
   }
@@ -260,7 +260,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   for (let i = 0; i < GAME_CONSTANTS.BOT_COUNT; i++) {
     createBot();
   }
-  console.log(`Создано ботов: ${bots.length}`);
+  //console.log(`Создано ботов: ${bots.length}`);
 
   createInvincibleText(); // Инициализируем надпись для игрока
   foodManager.updateSnakes([{ head: snakeHead, alive: true, isInvincible: true, segments: snakeSegments }, ...bots]);
@@ -311,7 +311,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     const { width } = calculateSnakeParams(snakeMass);
     snakeHead.width = width;
     snakeHead.height = width;
-    console.log("Обновлён размер головы змейки:", width);
+    //console.log("Обновлён размер головы змейки:", width);
     return { width };
   }
 
@@ -350,7 +350,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       snakeSegments.splice(maxSegments);
     }
 
-    console.log("Сегменты змейки обновлены, количество:", snakeSegments.length, "canBoost:", canBoost);
+    //console.log("Сегменты змейки обновлены, количество:", snakeSegments.length, "canBoost:", canBoost);
     return { width, segmentDistance };
   }
 
@@ -391,7 +391,7 @@ window.addEventListener("DOMContentLoaded", async () => {
         }
       }
     }
-    console.log("Тело змейки отрисовано");
+    //console.log("Тело змейки отрисовано");
   }
 
   function interpolateColor(color1, color2, factor) {
@@ -475,13 +475,13 @@ window.addEventListener("DOMContentLoaded", async () => {
     gameWorld.x = targetX;
     gameWorld.y = targetY;
     gameWorld.scale.set(uiManager.currentScale);
-    console.log("Камера обновлена:", {
+    /*console.log("Камера обновлена:", {
       gameWorldX: gameWorld.x,
       gameWorldY: gameWorld.y,
       scale: uiManager.currentScale,
       snakeHeadX: snakeHead.x,
       snakeHeadY: snakeHead.y
-    });
+    });*/
   }
 
   let currentAngle = -Math.PI / 2;
@@ -672,7 +672,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       gameWorld.removeChild(invincibleText);
       invincibleText.destroy();
       invincibleText = null;
-      console.log("Invincible text removed for player");
+      //console.log("Invincible text removed for player");
     }
   }
 
@@ -741,7 +741,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     snakeHead.x = newX;
     snakeHead.y = newY;
     snakeHead.rotation = currentAngle + Math.PI / 2;
-    console.log("Позиция змейки обновлена:", { x: snakeHead.x, y: snakeHead.y, rotation: snakeHead.rotation });
+    //("Позиция змейки обновлена:", { x: snakeHead.x, y: snakeHead.y, rotation: snakeHead.rotation });
 
     const { width } = updateSnakeSize();
     const { segmentDistance } = updateSnakeSegments(delta, canBoost);
@@ -846,7 +846,7 @@ window.addEventListener("DOMContentLoaded", async () => {
           const seg = bot.segments[i];
           const dist = Math.hypot(snakeHead.x - seg.x, snakeHead.y - seg.y);
           if (dist < snakeHead.width / 2 + seg.width / 2) {
-            console.log(`Обнаружено столкновение с ботом на сегменте ${i}, позиция (${seg.x}, ${seg.y})`);
+            //console.log(`Обнаружено столкновение с ботом на сегменте ${i}, позиция (${seg.x}, ${seg.y})`);
             playerDead = true;
             break;
           }

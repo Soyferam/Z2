@@ -54,14 +54,14 @@ export class UIManager {
       window.addEventListener("DOMContentLoaded", () => {
         this.balanceDisplay = document.querySelector(".balance-amount");
         if (this.balanceDisplay) {
-          console.log("Balance display initialized on DOMContentLoaded");
+          //console.log("Balance display initialized on DOMContentLoaded");
           this.updateBalanceDisplay();
         } else {
           console.error("Failed to find .balance-amount even after DOMContentLoaded");
         }
       }, { once: true });
     } else {
-      console.log("Balance display initialized");
+      //console.log("Balance display initialized");
       this.updateBalanceDisplay();
     }
   }
@@ -223,23 +223,120 @@ export class UIManager {
     };
   }
 
-  shareProfitCard(dataUrl) {
-    if (window.Telegram?.WebApp) {
-      const blob = this.dataURLtoBlob(dataUrl);
-      const file = new File([blob], "profit-card.png", { type: "image/png" });
-      window.Telegram.WebApp.sendData(JSON.stringify({
-        type: "shareProfitCard",
-        file: dataUrl,
-      }));
-      console.log("Profit card shared via Telegram WebApp");
-    } else {
-      const link = document.createElement("a");
-      link.href = dataUrl;
-      link.download = "profit-card.png";
-      link.click();
-      console.log("Profit card downloaded as profit-card.png");
+  async shareProfitCard(dataUrl) {
+  // Сжимаем изображение перед отправкой
+  const compressedDataUrl = await this.compressImage(dataUrl, 0.7, 400, 200);
+
+  if (window.Telegram?.WebApp) {
+    const tg = window.Telegram.WebApp;
+    try {
+      // Проверяем длину compressedDataUrl
+      if (compressedDataUrl.length > 4096) {
+        console.warn("Compressed dataUrl still too large, attempting to send as file");
+        // Конвертируем dataUrl в Blob для отправки как файл
+        const blob = this.dataURLtoBlob(compressedDataUrl);
+        const file = new File([blob], "profit-card.png", { type: "image/png" });
+
+        // Формируем сообщение
+        const shareText = `Check out my Crypto Snake profit card! Total Tokens: ${this.tokenAmountExit.textContent}`;
+
+        // Проверяем, поддерживает ли Telegram WebApp отправку файлов
+        if (tg.sendData) {
+          // Отправляем данные через sendData (ограниченный способ, может не поддерживать файлы)
+          const formData = new FormData();
+          formData.append("chat_id", tg.initDataUnsafe?.user?.id || "@CryptoSnakeGame");
+          formData.append("photo", file);
+          formData.append("caption", shareText);
+
+          // Для отправки файла используем fetch к Telegram Bot API (нужен токен бота)
+          // Замените YOUR_BOT_TOKEN на реальный токен вашего бота
+          const botToken = "YOUR_BOT_TOKEN"; // Укажите токен вашего Telegram-бота
+          const response = await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+            method: "POST",
+            body: formData,
+          });
+
+          if (response.ok) {
+            console.log("Profit card sent via Telegram Bot API");
+            tg.showAlert("Profit card sent to your Telegram chat!");
+          } else {
+            console.error("Failed to send profit card via Telegram Bot API");
+            tg.showAlert("Failed to send profit card. Try copying it instead.");
+            this.copyImageToClipboard(compressedDataUrl);
+          }
+        } else {
+          console.warn("Telegram WebApp sendData not available, falling back to copy");
+          this.copyImageToClipboard(compressedDataUrl);
+        }
+      } else {
+        // Если dataUrl достаточно короткий, отправляем через share URL
+        const shareText = `Check out my Crypto Snake profit card! Total Tokens: ${this.tokenAmountExit.textContent}`;
+        const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(compressedDataUrl)}&text=${encodeURIComponent(shareText)}`;
+        tg.openLink(shareUrl);
+        console.log("Profit card shared via Telegram WebApp:", shareUrl);
+      }
+    } catch (error) {
+      console.error("Error sharing profit card:", error);
+      tg.showAlert("Error sharing profit card. Copying to clipboard instead.");
+      this.copyImageToClipboard(compressedDataUrl);
     }
+  } else {
+    // Если Telegram WebApp недоступен, копируем изображение в буфер обмена
+    this.copyImageToClipboard(compressedDataUrl);
   }
+}
+
+// Вспомогательная функция для сжатия изображения
+async compressImage(dataUrl, quality, maxWidth, maxHeight) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = dataUrl;
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      let width = img.width;
+      let height = img.height;
+
+      // Уменьшаем размеры, если они превышают максимальные
+      if (width > maxWidth || height > maxHeight) {
+        const ratio = Math.min(maxWidth / width, maxHeight / height);
+        width *= ratio;
+        height *= ratio;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, width, height);
+      const compressedDataUrl = canvas.toDataURL("image/jpeg", quality);
+      resolve(compressedDataUrl);
+    };
+    img.onerror = () => {
+      console.error("Failed to load image for compression");
+      resolve(dataUrl); // Возвращаем оригинальный dataUrl в случае ошибки
+    };
+  });
+}
+
+// Вспомогательная функция для копирования изображения в буфер обмена
+async copyImageToClipboard(dataUrl) {
+  try {
+    const blob = this.dataURLtoBlob(dataUrl);
+    await navigator.clipboard.write([
+      new ClipboardItem({ "image/png": blob }),
+    ]);
+    console.log("Profit card copied to clipboard");
+    alert("Profit card copied to clipboard! Paste it in any app.");
+  } catch (error) {
+    console.error("Error copying to clipboard:", error);
+    // Запасной вариант: скачать изображение
+    const link = document.createElement("a");
+    link.href = dataUrl;
+    link.download = "profit-card.png";
+    link.click();
+    console.log("Profit card downloaded as profit-card.png");
+    alert("Failed to copy to clipboard. Image downloaded instead.");
+  }
+}
 
   dataURLtoBlob(dataUrl) {
     const arr = dataUrl.split(",");
@@ -259,21 +356,62 @@ export class UIManager {
       return;
     }
 
+    // Скрываем игровые элементы
+    if (this.exitButton) this.exitButton.style.display = "none";
+    if (this.quickExitButton) this.quickExitButton.style.display = "none";
+    if (this.boostButton) this.boostButton.style.display = "none";
+    if (this.joystickContainer) this.joystickContainer.style.display = "none";
+    if (this.minimapCanvas) this.minimapCanvas.style.display = "none";
+    if (this.profitBox) this.profitBox.style.display = "none";
+
     // Применяем штраф 10% для быстрого выхода
     const finalTonBalance = isQuickExit ? this.tonBalance * 0.9 : this.tonBalance;
     const finalTokens = Math.floor(this.tokens);
 
+    // Устанавливаем начальную прозрачность и масштаб для анимации появления
+    this.exitScreen.style.opacity = "0";
     this.exitScreen.style.display = "flex";
+    const exitContent = this.exitScreen.querySelector(".exit-content");
+    if (exitContent) {
+      exitContent.style.transform = "scale(0.8)";
+      exitContent.style.opacity = "0";
+    }
+
+    // Анимация появления
+    let opacity = 0;
+    let scale = 0.8;
+    const duration = 500; // Длительность анимации в миллисекундах
+    const startTime = performance.now();
+
+    const animateAppearance = (currentTime) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+
+      opacity = progress;
+      scale = 0.8 + 0.2 * progress; // От 0.8 до 1
+
+      this.exitScreen.style.opacity = opacity;
+      if (exitContent) {
+        exitContent.style.transform = `scale(${scale})`;
+        exitContent.style.opacity = progress;
+      }
+
+      if (progress < 1) {
+        requestAnimationFrame(animateAppearance);
+      }
+    };
+
+    requestAnimationFrame(animateAppearance);
 
     // Анимация для токенов и TON
     let currentTokens = 0;
     let currentTon = 0;
-    const duration = 2000; // Длительность анимации в миллисекундах
-    const startTime = performance.now();
+    const countUpDuration = 2000; // Длительность анимации счетчика
+    const countUpStartTime = performance.now();
 
-    const animate = () => {
-      const elapsed = performance.now() - startTime;
-      const progress = Math.min(elapsed / duration, 1);
+    const animateCountUp = (currentTime) => {
+      const elapsed = currentTime - countUpStartTime;
+      const progress = Math.min(elapsed / countUpDuration, 1);
 
       // Линейная интерполяция для токенов и TON
       currentTokens = Math.floor(progress * finalTokens);
@@ -284,7 +422,7 @@ export class UIManager {
       this.balanceAmountExit.textContent = `${currentTon.toFixed(2)} TON`;
 
       if (progress < 1) {
-        requestAnimationFrame(animate);
+        requestAnimationFrame(animateCountUp);
       } else {
         // Финальные значения
         this.tokenAmountExit.textContent = finalTokens.toString();
@@ -292,7 +430,7 @@ export class UIManager {
       }
     };
 
-    requestAnimationFrame(animate);
+    requestAnimationFrame(animateCountUp);
     console.log(`Exit screen shown: Tokens=${finalTokens}, TON=${finalTonBalance.toFixed(2)}, isQuickExit=${isQuickExit}`);
     this.saveProfitData();
   }

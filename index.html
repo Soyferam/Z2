@@ -2,9 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#1a1a1a">
+  <meta name="format-detection" content="telephone=no">
   <title>Crypto Snake</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐍</text></svg>">
   <link rel="stylesheet" href="src/style.css">
@@ -70,6 +72,7 @@
       <p>Loading 🐍Shhh...</p>
     </div>
   </div>
+  
   <!-- Game Over Screen -->
   <div id="game-over-screen" class="game-over-screen">
     <div class="game-over-content">
@@ -81,8 +84,9 @@
       </div>
     </div>
   </div>
-  <!-- Exit Screen -->
-  <div id="exit-screen" class="exit-screen">
+  
+  <!-- Exit Screen (скрыт по умолчанию) -->
+  <div id="exit-screen" class="exit-screen" style="display: none;">
     <div class="exit-content">
       <h2>Great Job!</h2>
       <p class="tokens-text">Total Tokens: <span class="token-amount-exit">0</span></p>
@@ -93,25 +97,42 @@
       </div>
     </div>
   </div>
+  
+  <!-- Game UI -->
   <div id="game-container"></div>
-  <div id="minimap" class="minimap"></div>
+  <canvas id="minimap" class="minimap"></canvas>
+  
   <div id="profit-box" class="profit-box">
     <div class="profit-text">
       <div class="tokens-line">Tokens: <span class="token-amount">0</span></div>
       <div class="balance-line">Balance: <span class="balance-amount">1.00 TON</span></div>
     </div>
   </div>
+  
   <div id="exit-buttons" class="exit-buttons">
     <button id="exit-btn" class="exit-btn">Exit</button>
     <button id="quick-exit-btn" class="exit-btn">Quick Exit (-10%)</button>
   </div>
+  
   <button id="boost-btn" class="boost-btn">Boost</button>
   <div id="joystick" class="joystick"></div>
+  
   <script defer src="https://pixijs.download/v7.4.0/pixi.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/nipplejs@0.10.0/dist/nipplejs.min.js"></script>
   <script defer src="https://telegram.org/js/telegram-web-app.js"></script>
   <script type="module" defer src="src/game.js"></script>
+  
   <script>
+    // Фиксим высоту для мобильных устройств
+    function setViewportHeight() {
+      let vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--vh', `${vh}px`);
+    }
+
+    window.addEventListener('resize', setViewportHeight);
+    window.addEventListener('orientationchange', setViewportHeight);
+    setViewportHeight();
+
     window.addEventListener("DOMContentLoaded", () => {
       if (window.Telegram && window.Telegram.WebApp) {
         const tg = window.Telegram.WebApp;

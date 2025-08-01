@@ -255,153 +255,6 @@ html, body {
   background: rgba(255, 255, 255, 0.2);
 }
 
-.nipple {
-  width: 100% !important;
-  height: 100% !important;
-  position: absolute;
-  top: 0;
-  left: 0;
-}
-
-.nipple .front {
-  background: rgba(255, 255, 255, 0.3) !important;
-  border-radius: 50% !important;
-  width: 50% !important;
-  height: 50% !important;
-  position: absolute;
-  top: 25%;
-  left: 25%;
-}
-
-@media (max-width: 768px) {
-  #minimap {
-    top: 12vh;
-    left: 6vw;
-    width: 100px;
-    height: 100px;
-  }
-  .profit-box {
-    top: 12vh;
-    right: 2vw;
-    min-width: 120px;
-    padding: 8px 12px;
-    font-size: 12px;
-  }
-  .exit-buttons {
-    top: 19vh;
-    right: 3vw;
-    min-width: 120px;
-    max-width: 120px;
-    gap: 8px;
-  }
-  .dev-container {
-    top: 16vh;
-    right: 2vw;
-    min-width: 120px;
-    padding: 8px;
-  }
-  .dev-input, .dev-btn {
-    font-size: 12px;
-    padding: 6px;
-  }
-  .exit-btn, .quick-exit-btn {
-    padding: 7px 3px;
-    font-size: 12px;
-  }
-  .boost-btn {
-    bottom: 12vh;
-    right: 13vw;
-    padding: 15px 20px;
-    font-size: 14px;
-    display: block;
-  }
-  .joystick {
-    left: 20%;
-    top: 1000%;
-    width: 100px;
-    height: 100px;
-    display: block;
-  }
-  .game-over-content {
-    min-width: 200px;
-    max-width: 300px;
-    padding: 15px;
-    width: 140px; /* Увеличенная зона */
-  height: 180px; /* Увеличенная зона */
-    padding: 20px; /* Прозрачная область для перехвата касаний */
-  }
-  .game-over-content h2 {
-    font-size: 20px;
-  }
-  .balance-text {
-    font-size: 16px;
-  }
-  .game-over-btn {
-    font-size: 14px;
-    padding: 8px;
-  }
-}
-
-@media (max-width: 768px) {
-  .joystick {
-    left: 15%;
-    top: 79%;
-    width: 120px;
-    height: 120px;
-    display: block;
-    padding: 20px; /* Прозрачная область */
-  }
-}
-
-@media (max-width: 768px) and (orientation: landscape) {
-  .joystick {
-    left: 10%;
-    top: 10%;
-    width: 120px;
-    height: 120px;
-    display: block;
-    padding: 20px; /* Прозрачная область */
-  }
-}
-
-@media (min-width: 1024px) {
-  #minimap {
-    top: 4vh;
-    left: 4vw;
-    width: 150px;
-    height: 150px;
-  }
-  .profit-box {
-    top: 4vh;
-    right: 4vw;
-    min-width: 200px;
-    padding: 12px 20px;
-    font-size: 16px;
-  }
-  .exit-buttons {
-    top: 16vh;
-    right: 4vw;
-    min-width: 200px;
-    max-width: 200px;
-    gap: 12px;
-  }
-  .dev-container {
-    top: 22vh;
-    right: 4vw;
-    min-width: 200px;
-    padding: 12px;
-  }
-  .dev-input, .dev-btn {
-    font-size: 16px;
-    padding: 10px;
-  }
-  .exit-btn, .quick-exit-btn {
-    padding: 10px;
-    font-size: 16px;
-  }
-  #boost-btn {
-    display: none;
-  }
 /* Exit Screen Styles */
 .exit-screen {
   position: fixed;
@@ -475,7 +328,89 @@ html, body {
   background: rgba(255, 255, 255, 0.2);
 }
 
+.nipple {
+  width: 100% !important;
+  height: 100% !important;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.nipple .front {
+  background: rgba(255, 255, 255, 0.3) !important;
+  border-radius: 50% !important;
+  width: 50% !important;
+  height: 50% !important;
+  position: absolute;
+  top: 25%;
+  left: 25%;
+}
+
 @media (max-width: 768px) {
+  #minimap {
+    top: 12vh;
+    left: 6vw;
+    width: 100px;
+    height: 100px;
+  }
+  .profit-box {
+    top: 12vh;
+    right: 2vw;
+    min-width: 120px;
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+  .exit-buttons {
+    top: 19vh;
+    right: 3vw;
+    min-width: 120px;
+    max-width: 120px;
+    gap: 8px;
+  }
+  .dev-container {
+    top: 16vh;
+    right: 2vw;
+    min-width: 120px;
+    padding: 8px;
+  }
+  .dev-input, .dev-btn {
+    font-size: 12px;
+    padding: 6px;
+  }
+  .exit-btn, .quick-exit-btn {
+    padding: 7px 3px;
+    font-size: 12px;
+  }
+  .boost-btn {
+    bottom: 12vh;
+    right: 13vw;
+    padding: 15px 20px;
+    font-size: 14px;
+    display: block;
+  }
+  .joystick {
+    left: 15%;
+    bottom: 4vh;
+    width: 120px;
+    height: 120px;
+    display: block;
+    padding: 20px; /* Прозрачная область */
+  }
+  .game-over-content {
+    min-width: 200px;
+    max-width: 300px;
+    padding: 15px;
+  }
+  .game-over-content h2 {
+    font-size: 20px;
+  }
+  .balance-text {
+    font-size: 16px;
+  }
+  .game-over-btn {
+    font-size: 14px;
+    padding: 8px;
+  }
   .exit-content {
     min-width: 200px;
     max-width: 300px;
@@ -492,5 +427,54 @@ html, body {
     padding: 8px;
   }
 }
-  
+
+@media (max-width: 768px) and (orientation: landscape) {
+  .joystick {
+    left: 10%;
+    bottom: 4vh;
+    width: 120px;
+    height: 120px;
+    display: block;
+    padding: 20px; /* Прозрачная область */
+  }
+}
+
+@media (min-width: 1024px) {
+  #minimap {
+    top: 4vh;
+    left: 4vw;
+    width: 150px;
+    height: 150px;
+  }
+  .profit-box {
+    top: 4vh;
+    right: 4vw;
+    min-width: 200px;
+    padding: 12px 20px;
+    font-size: 16px;
+  }
+  .exit-buttons {
+    top: 16vh;
+    right: 4vw;
+    min-width: 200px;
+    max-width: 200px;
+    gap: 12px;
+  }
+  .dev-container {
+    top: 22vh;
+    right: 4vw;
+    min-width: 200px;
+    padding: 12px;
+  }
+  .dev-input, .dev-btn {
+    font-size: 16px;
+    padding: 10px;
+  }
+  .exit-btn, .quick-exit-btn {
+    padding: 10px;
+    font-size: 16px;
+  }
+  #boost-btn {
+    display: none;
+  }
 }

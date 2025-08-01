@@ -13,7 +13,7 @@ export class FoodManager {
     this.colors = GAME_CONSTANTS.FOOD_COLORS;
     this.foodSpawnTimer = 0;
     this.foodSpawnInterval = 0.1;
-    console.log("FoodManager initialized, tonTexture:", !!tonTexture);
+    //console.log("FoodManager initialized, tonTexture:", !!tonTexture);
   }
 
   createGradientTexture(color, size) {
@@ -185,7 +185,7 @@ export class FoodManager {
         logo.width = ton.size * 0.8;
         logo.height = ton.size * 0.8;
         ton.addChild(logo);
-        console.log(`Applied ton.png texture to TON food ID ${ton.id}`);
+        //console.log(`Applied ton.png texture to TON food ID ${ton.id}`);
       } else {
         console.warn("tonTexture not available for TON food");
       }

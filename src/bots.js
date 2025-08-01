@@ -151,7 +151,7 @@ export class BotSnake {
     this.invincibleText.y = this.head.y - 50;
     this.invincibleText.zIndex = 2;
     this.gameWorld.addChild(this.invincibleText);
-    console.log(`Safe Start text created for bot at (${this.head.x}, ${this.head.y})`);
+    //console.log(`Safe Start text created for bot at (${this.head.x}, ${this.head.y})`);
   }
 
   getColorName(color) {
@@ -324,7 +324,7 @@ export class BotSnake {
         this.gameWorld.removeChild(this.invincibleText);
         this.invincibleText.destroy();
         this.invincibleText = null;
-        console.log("Safe Start text removed for bot");
+        //console.log("Safe Start text removed for bot");
       }
     }
 
@@ -520,7 +520,7 @@ export class BotSnake {
             this.head.destroy();
             this.bodyGraphics.destroy();
             this.glowGraphics.destroy();
-            console.log(`Bot died due to collision with another bot at segment ${i}`);
+            //console.log(`Bot died due to collision with another bot at segment ${i}`);
             return;
           }
         }
@@ -543,7 +543,7 @@ export class BotSnake {
           this.head.destroy();
           this.bodyGraphics.destroy();
           this.glowGraphics.destroy();
-          console.log(`Bot died due to collision with player at segment ${i}`);
+          //(`Bot died due to collision with player at segment ${i}`);
           return;
         }
       }
