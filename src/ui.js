@@ -227,43 +227,17 @@ export class UIManager {
 
 // Вставьте эти методы в ваш существующий класс UIManager в ui.js
 
+// Вставьте эти методы в ваш существующий класс UIManager в ui.js
+
 async shareProfitCard(dataUrl) {
-  // Сжимаем изображение перед отправкой (очень сильно, чтобы уложиться в лимит Telegram)
+  // Сжимаем изображение перед копированием
   const compressedDataUrl = await this.compressImage(dataUrl, 0.3, 200, 100);
 
-  if (window.Telegram?.WebApp) {
-    const tg = window.Telegram.WebApp;
-    try {
-      // Логируем информацию о Telegram WebApp
-      console.log("Telegram WebApp version:", tg.version);
-      console.log("User data:", tg.initDataUnsafe?.user);
-      console.log("Compressed dataUrl length:", compressedDataUrl.length);
+  console.log("Telegram WebApp available:", !!window.Telegram?.WebApp);
+  console.log("Compressed dataUrl length:", compressedDataUrl.length);
 
-      // Формируем сообщение
-      const shareText = `Check out my Crypto Snake profit card! Total Tokens: ${this.tokenAmountExit.textContent}`;
-
-      // Проверяем длину compressedDataUrl
-      if (compressedDataUrl.length > 4096) {
-        console.warn("Compressed dataUrl too large, falling back to clipboard or download");
-        alert("Image is too large to share via Telegram. Trying to copy to clipboard or download.");
-        await this.copyImageToClipboard(compressedDataUrl);
-      } else {
-        // Отправляем через Telegram share URL
-        const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(compressedDataUrl)}&text=${encodeURIComponent(shareText)}`;
-        tg.openLink(shareUrl);
-        console.log("Profit card shared via Telegram WebApp:", shareUrl);
-        alert("Profit card shared via Telegram! Check your Telegram chat.");
-      }
-    } catch (error) {
-      console.error("Error sharing profit card:", error);
-      alert("Error sharing via Telegram. Copying to clipboard or downloading instead.");
-      await this.copyImageToClipboard(compressedDataUrl);
-    }
-  } else {
-    // Если Telegram WebApp недоступен, копируем в буфер обмена или скачиваем
-    console.log("Telegram WebApp not available, falling back to clipboard or download");
-    await this.copyImageToClipboard(compressedDataUrl);
-  }
+  // Пытаемся скопировать изображение в буфер обмена
+  await this.copyImageToClipboard(compressedDataUrl);
 }
 
 // Вспомогательная функция для сжатия изображения
@@ -301,6 +275,9 @@ async compressImage(dataUrl, quality, maxWidth, maxHeight) {
 // Вспомогательная функция для копирования изображения в буфер обмена
 async copyImageToClipboard(dataUrl) {
   console.log("Attempting to copy image to clipboard");
+  console.log("Navigator clipboard available:", !!navigator.clipboard);
+  console.log("ClipboardItem supported:", !!window.ClipboardItem);
+
   try {
     // Проверяем поддержку Clipboard API
     if (!navigator.clipboard || !window.ClipboardItem) {
@@ -311,7 +288,7 @@ async copyImageToClipboard(dataUrl) {
       new ClipboardItem({ "image/png": blob }),
     ]);
     console.log("Profit card copied to clipboard successfully");
-    alert("Profit card copied to clipboard! Paste it in any app (e.g., Telegram, Discord).");
+    alert("Profit card copied to clipboard! Paste it in Telegram or any app (Ctrl+V or long press).");
   } catch (error) {
     console.error("Error copying to clipboard:", error);
     // Запасной вариант: скачать изображение
