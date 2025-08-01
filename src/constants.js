@@ -16,7 +16,7 @@ export const GAME_CONSTANTS = {
     MIN_TON_PER_SNAKE: 1,               // Минимальное количество TON за змею
     MAX_TON_PER_SNAKE: 20,              // Максимальное количество TON за змею
     TON_PER_DROP: 0.5,                  // Количество TON в одном куске еды
-    TON_SIZE: 12,                       // Размер TON-еды
+    TON_SIZE: 16,                       // Размер TON-еды
     TON_COLOR: { stops: 0.6, inner: 0x33CCFF, outer: 0x0099CC }, // Цвет TON
   },
 
