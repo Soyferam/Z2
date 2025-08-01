@@ -468,42 +468,71 @@ dataURLtoBlob(dataUrl) {
   }
 
   initJoystick() {
-    if (this.isMobile) {
-      if (this.joystick) {
-        this.joystick.destroy();
-        this.joystick = null;
-      }
-      this.joystickContainer = document.getElementById("joystick");
-      if (!this.joystickContainer) {
-        console.warn("Joystick container not found, creating new");
-        this.joystickContainer = document.createElement("div");
-        this.joystickContainer.id = "joystick";
-        document.body.appendChild(this.joystickContainer);
-      }
+  if (this.isMobile) {
+    // Уничтожаем существующий джойстик, если он есть
+    if (this.joystick) {
+      this.joystick.destroy();
+      this.joystick = null;
+    }
 
-      this.joystickContainer.addEventListener("touchstart", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      }, { passive: false });
+    // Находим или создаем контейнер джойстика
+    this.joystickContainer = document.getElementById("joystick");
+    if (!this.joystickContainer) {
+      console.warn("Joystick container not found, creating new");
+      this.joystickContainer = document.createElement("div");
+      this.joystickContainer.id = "joystick";
+      this.joystickContainer.className = "joystick";
+      document.body.appendChild(this.joystickContainer);
+    }
 
-      this.joystickContainer.addEventListener("touchmove", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      }, { passive: false });
+    // Устанавливаем начальную видимость
+    this.joystickContainer.style.display = "block";
+    console.log("Joystick initial display:", this.joystickContainer.style.display);
 
-      this.joystickContainer.addEventListener("touchend", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      }, { passive: false });
+    // Логируем стили для отладки
+    console.log("Joystick container styles:", {
+      display: this.joystickContainer.style.display,
+      position: this.joystickContainer.style.position,
+      left: this.joystickContainer.style.left,
+      bottom: this.joystickContainer.style.bottom,
+      width: this.joystickContainer.style.width,
+      height: this.joystickContainer.style.height,
+      zIndex: this.joystickContainer.style.zIndex
+    });
 
+    // Устанавливаем обработчики событий касания
+    const touchEventOptions = { passive: false };
+    this.joystickContainer.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log("Joystick touchstart");
+    }, touchEventOptions);
+
+    this.joystickContainer.addEventListener("touchmove", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log("Joystick touchmove");
+    }, touchEventOptions);
+
+    this.joystickContainer.addEventListener("touchend", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log("Joystick touchend");
+    }, touchEventOptions);
+
+    // Функция для инициализации джойстика
+    const initializeJoystick = () => {
+      const isLandscape = window.innerWidth > window.innerHeight;
+      const joystickSize = isLandscape ? 80 : 100;
       try {
         this.joystick = nipplejs.create({
           zone: this.joystickContainer,
           mode: "static",
-          position: { left: "50%", top: "50%" },
+          position: { left: "50%", top: "50%" }, // Центрируем сосочек
           color: "white",
-          size: 100,
-          catchDistance: 200,
+          size: joystickSize,
+          restJoystick: true, // Возвращаем сосочек в центр после отпускания
+          catchDistance: 200
         });
 
         this.joystick.on("move", (evt, data) => {
@@ -511,26 +540,47 @@ dataURLtoBlob(dataUrl) {
             this.targetAngle = -data.angle.radian;
             this.targetAngle = ((this.targetAngle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
             if (this.targetAngle > Math.PI) this.targetAngle -= 2 * Math.PI;
+            console.log("Joystick moved, targetAngle:", this.targetAngle);
           }
         });
 
         this.joystick.on("end", () => {
-          // Do not change angle on release
+          console.log("Joystick released");
+          // Сосочек возвращается в центр автоматически благодаря restJoystick
         });
+
+        console.log("Joystick initialized successfully, size:", joystickSize);
       } catch (error) {
-        console.error(`Error initializing joystick: ${error}`);
+        console.error("Error initializing joystick:", error);
       }
-    } else {
+    };
+
+    // Инициализируем джойстик сразу
+    initializeJoystick();
+
+    // Обработчик смены ориентации
+    window.addEventListener("orientationchange", () => {
+      console.log("Orientation changed, reinitializing joystick");
+      this.joystickContainer.style.display = "block";
       if (this.joystick) {
         this.joystick.destroy();
         this.joystick = null;
       }
-      if (this.joystickContainer) {
-        this.joystickContainer.remove();
-        this.joystickContainer = null;
-      }
+      initializeJoystick();
+      console.log("Joystick reinitialized, display:", this.joystickContainer.style.display);
+    }, { once: false });
+  } else {
+    if (this.joystick) {
+      this.joystick.destroy();
+      this.joystick = null;
     }
+    if (this.joystickContainer) {
+      this.joystickContainer.remove();
+      this.joystickContainer = null;
+    }
+    console.log("Joystick not initialized (not mobile)");
   }
+}
 
   initEventListeners() {
     if (this.boostButton && this.isMobile) {

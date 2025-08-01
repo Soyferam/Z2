@@ -429,13 +429,56 @@ html, body {
 }
 
 @media (max-width: 768px) and (orientation: landscape) {
+  .exit-buttons {
+    position: fixed !important;
+    top: 50vh !important; /* Смещаем ниже (было 19vh) */
+    right: 3vw !important;
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 8px !important;
+    min-width: 120px !important;
+    max-width: 120px !important;
+    z-index: 1100 !important; /* Увеличиваем z-index, чтобы не перекрывался */
+  }
+
+  .exit-btn, .quick-exit-btn {
+    padding: 7px 3px !important;
+    font-size: 12px !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.25) !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2) !important;
+    border-radius: 20px !important;
+    color: #fff !important;
+    cursor: pointer !important;
+    text-align: center !important;
+    transition: 0.3s ease !important;
+    flex: 1 !important;
+  }
   .joystick {
-    left: 10%;
-    bottom: 4vh;
-    width: 120px;
-    height: 120px;
-    display: block;
-    padding: 20px; /* Прозрачная область */
+    position: fixed !important;
+    bottom: 5vh !important; /* Поднимаем выше, чтобы не обрезалось */
+    left: 5vw !important; /* Ближе к левому краю */
+    width: 80px !important; /* Компактный размер */
+    height: 80px !important;
+    background: rgba(255, 255, 255, 0.3) !important; /* Более заметный фон для отладки */
+    border: 2px solid rgba(255, 255, 255, 0.5) !important; /* Яркая граница */
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5) !important;
+    border-radius: 50% !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    display: block !important; /* Гарантируем видимость */
+    z-index: 1000 !important; /* Высокий z-index, чтобы не перекрывался */
+    padding: 5px !important; /* Минимальный padding */
+  }
+
+  .nipple .front {
+    background: rgba(255, 255, 255, 0.5) !important; /* Более заметный цвет */
+    border-radius: 50% !important;
+    width: 50% !important;
+    height: 50% !important;
+    position: absolute !important;
+    top: 25% !important;
+    left: 25% !important;
   }
 }
 
