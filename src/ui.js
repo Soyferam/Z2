@@ -223,66 +223,39 @@ export class UIManager {
     };
   }
 
-  async shareProfitCard(dataUrl) {
-  // Сжимаем изображение перед отправкой
-  const compressedDataUrl = await this.compressImage(dataUrl, 0.7, 400, 200);
+  // Вставьте эти методы в ваш существующий класс UIManager в ui.js
+
+async shareProfitCard(dataUrl) {
+  // Сжимаем изображение перед отправкой (сильнее, чтобы уложиться в лимит Telegram)
+  const compressedDataUrl = await this.compressImage(dataUrl, 0.5, 300, 150);
 
   if (window.Telegram?.WebApp) {
     const tg = window.Telegram.WebApp;
     try {
+      // Формируем сообщение
+      const shareText = `Check out my Crypto Snake profit card! Total Tokens: ${this.tokenAmountExit.textContent}`;
+
       // Проверяем длину compressedDataUrl
       if (compressedDataUrl.length > 4096) {
-        console.warn("Compressed dataUrl still too large, attempting to send as file");
-        // Конвертируем dataUrl в Blob для отправки как файл
-        const blob = this.dataURLtoBlob(compressedDataUrl);
-        const file = new File([blob], "profit-card.png", { type: "image/png" });
-
-        // Формируем сообщение
-        const shareText = `Check out my Crypto Snake profit card! Total Tokens: ${this.tokenAmountExit.textContent}`;
-
-        // Проверяем, поддерживает ли Telegram WebApp отправку файлов
-        if (tg.sendData) {
-          // Отправляем данные через sendData (ограниченный способ, может не поддерживать файлы)
-          const formData = new FormData();
-          formData.append("chat_id", tg.initDataUnsafe?.user?.id || "@CryptoSnakeGame");
-          formData.append("photo", file);
-          formData.append("caption", shareText);
-
-          // Для отправки файла используем fetch к Telegram Bot API (нужен токен бота)
-          // Замените YOUR_BOT_TOKEN на реальный токен вашего бота
-          const botToken = "YOUR_BOT_TOKEN"; // Укажите токен вашего Telegram-бота
-          const response = await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
-            method: "POST",
-            body: formData,
-          });
-
-          if (response.ok) {
-            console.log("Profit card sent via Telegram Bot API");
-            tg.showAlert("Profit card sent to your Telegram chat!");
-          } else {
-            console.error("Failed to send profit card via Telegram Bot API");
-            tg.showAlert("Failed to send profit card. Try copying it instead.");
-            this.copyImageToClipboard(compressedDataUrl);
-          }
-        } else {
-          console.warn("Telegram WebApp sendData not available, falling back to copy");
-          this.copyImageToClipboard(compressedDataUrl);
-        }
+        console.warn("Compressed dataUrl too large, falling back to clipboard or download");
+        alert("Image is too large to share via Telegram. Copying to clipboard or downloading.");
+        await this.copyImageToClipboard(compressedDataUrl);
       } else {
-        // Если dataUrl достаточно короткий, отправляем через share URL
-        const shareText = `Check out my Crypto Snake profit card! Total Tokens: ${this.tokenAmountExit.textContent}`;
+        // Отправляем через Telegram share URL
         const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(compressedDataUrl)}&text=${encodeURIComponent(shareText)}`;
         tg.openLink(shareUrl);
         console.log("Profit card shared via Telegram WebApp:", shareUrl);
+        alert("Profit card shared via Telegram! Check your Telegram chat.");
       }
     } catch (error) {
       console.error("Error sharing profit card:", error);
-      tg.showAlert("Error sharing profit card. Copying to clipboard instead.");
-      this.copyImageToClipboard(compressedDataUrl);
+      alert("Error sharing via Telegram. Copying to clipboard or downloading instead.");
+      await this.copyImageToClipboard(compressedDataUrl);
     }
   } else {
-    // Если Telegram WebApp недоступен, копируем изображение в буфер обмена
-    this.copyImageToClipboard(compressedDataUrl);
+    // Если Telegram WebApp недоступен, копируем в буфер обмена или скачиваем
+    console.log("Telegram WebApp not available, falling back to clipboard or download");
+    await this.copyImageToClipboard(compressedDataUrl);
   }
 }
 
@@ -308,6 +281,7 @@ async compressImage(dataUrl, quality, maxWidth, maxHeight) {
       const ctx = canvas.getContext("2d");
       ctx.drawImage(img, 0, 0, width, height);
       const compressedDataUrl = canvas.toDataURL("image/jpeg", quality);
+      console.log(`Compressed image: original size=${dataUrl.length}, compressed size=${compressedDataUrl.length}`);
       resolve(compressedDataUrl);
     };
     img.onerror = () => {
@@ -325,7 +299,7 @@ async copyImageToClipboard(dataUrl) {
       new ClipboardItem({ "image/png": blob }),
     ]);
     console.log("Profit card copied to clipboard");
-    alert("Profit card copied to clipboard! Paste it in any app.");
+    alert("Profit card copied to clipboard! Paste it in any app (e.g., Telegram, Discord).");
   } catch (error) {
     console.error("Error copying to clipboard:", error);
     // Запасной вариант: скачать изображение
@@ -334,21 +308,21 @@ async copyImageToClipboard(dataUrl) {
     link.download = "profit-card.png";
     link.click();
     console.log("Profit card downloaded as profit-card.png");
-    alert("Failed to copy to clipboard. Image downloaded instead.");
+    alert("Failed to copy to clipboard. Image downloaded as profit-card.png.");
   }
 }
 
-  dataURLtoBlob(dataUrl) {
-    const arr = dataUrl.split(",");
-    const mime = arr[0].match(/:(.*?);/)[1];
-    const bstr = atob(arr[1]);
-    let n = bstr.length;
-    const u8arr = new Uint8Array(n);
-    while (n--) {
-      u8arr[n] = bstr.charCodeAt(n);
-    }
-    return new Blob([u8arr], { type: mime });
+dataURLtoBlob(dataUrl) {
+  const arr = dataUrl.split(",");
+  const mime = arr[0].match(/:(.*?);/)[1];
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n);
   }
+  return new Blob([u8arr], { type: mime });
+}
 
   showExitScreen(isQuickExit = false) {
     if (!this.exitScreen || !this.tokenAmountExit || !this.balanceAmountExit) {
