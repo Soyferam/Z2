@@ -390,7 +390,7 @@ html, body {
   }
   .joystick {
     left: 15%;
-    bottom: 4vh;
+    bottom: 8vh;
     width: 120px;
     height: 120px;
     display: block;
